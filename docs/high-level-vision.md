@@ -140,6 +140,7 @@ https://github.com/ppl-ai/modelcontextprotocol
 https://github.com/microsoft/playwright-mcp
 https://github.com/e2b-dev/mcp-server
 https://github.com/supabase-community/supabase-mcp
+https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem
 
 For agent knowledge base / knowledge graph / hybrid rag
 /Users/nicholaspate/Documents/raw-mas/Overnight Strategist - Strategist Toolkit V3 copy.pdf

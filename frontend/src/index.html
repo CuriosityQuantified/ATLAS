@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATLAS - Agentic Task Logic & Analysis System</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Left Sidebar -->
+        <div class="sidebar sidebar-left">
+            <div class="sidebar-header">
+                <div class="user-avatar"></div>
+                <div>
+                    <div class="user-name">Research User</div>
+                    <div class="user-role">Analyst</div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button class="nav-btn active">Dashboard</button>
+                <button class="nav-btn">Tasks</button>
+                <button class="nav-btn">Agents</button>
+                <button class="nav-btn">Memory</button>
+                <button class="nav-btn">Analytics</button>
+                <button class="nav-btn">Settings</button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                ATLAS v3.0
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="dashboard-header">
+                <h1>Multi-Agent Analysis Dashboard</h1>
+                <div class="progress-dropdown">
+                    <button class="progress-btn" id="progressBtn">
+                        Task Progress ▼
+                    </button>
+                    <div class="progress-menu" id="progressMenu">
+                        <div class="progress-menu-item">
+                            <span>Research Phase</span>
+                            <span>✓</span>
+                        </div>
+                        <div class="progress-menu-item">
+                            <span>Analysis Phase</span>
+                            <span>⏳</span>
+                        </div>
+                        <div class="progress-menu-item">
+                            <span>Writing Phase</span>
+                            <span>⏸</span>
+                        </div>
+                        <div class="progress-menu-item">
+                            <span>Rating Phase</span>
+                            <span>⏸</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="agent-architecture">
+                <!-- Global Supervisor -->
+                <div class="agent-row">
+                    <div class="agent-card">
+                        <div class="agent-status active"></div>
+                        <div class="agent-title">Global Supervisor</div>
+                        <div class="agent-desc">Orchestrates all team operations and maintains task coherence</div>
+                    </div>
+                </div>
+
+                <!-- Team Supervisors -->
+                <div class="agent-row">
+                    <div class="agent-card">
+                        <div class="agent-status active"></div>
+                        <div class="agent-title">🕵️‍♂️ Research Supervisor</div>
+                        <div class="agent-desc">Coordinates information gathering and source validation</div>
+                    </div>
+                    <div class="agent-card">
+                        <div class="agent-status processing"></div>
+                        <div class="agent-title">📊 Analysis Supervisor</div>
+                        <div class="agent-desc">Manages analytical frameworks and data interpretation</div>
+                    </div>
+                    <div class="agent-card">
+                        <div class="agent-status idle"></div>
+                        <div class="agent-title">✍️ Writing Supervisor</div>
+                        <div class="agent-desc">Oversees content generation and narrative coherence</div>
+                    </div>
+                    <div class="agent-card">
+                        <div class="agent-status idle"></div>
+                        <div class="agent-title">📈 Rating Supervisor</div>
+                        <div class="agent-desc">Evaluates quality and provides improvement feedback</div>
+                    </div>
+                </div>
+
+                <!-- Worker Agents -->
+                <div class="agent-row">
+                    <div class="agent-card worker">
+                        <div class="agent-status active"></div>
+                        <div class="agent-title">Web Researcher</div>
+                        <div class="agent-desc">Gathers information from online sources</div>
+                    </div>
+                    <div class="agent-card worker">
+                        <div class="agent-status active"></div>
+                        <div class="agent-title">Data Analyst</div>
+                        <div class="agent-desc">Processes and interprets quantitative data</div>
+                    </div>
+                    <div class="agent-card worker">
+                        <div class="agent-status processing"></div>
+                        <div class="agent-title">SWOT Analyzer</div>
+                        <div class="agent-desc">Conducts strategic analysis frameworks</div>
+                    </div>
+                    <div class="agent-card worker">
+                        <div class="agent-status idle"></div>
+                        <div class="agent-title">Content Writer</div>
+                        <div class="agent-desc">Generates structured written content</div>
+                    </div>
+                    <div class="agent-card worker">
+                        <div class="agent-status idle"></div>
+                        <div class="agent-title">Quality Reviewer</div>
+                        <div class="agent-desc">Reviews and scores output quality</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="sidebar sidebar-right">
+            <div class="sidebar-header">
+                <h3>Agent Questions</h3>
+            </div>
+            
+            <div class="questions-list">
+                <div class="question-card">
+                    <div class="question-agent">Research Supervisor</div>
+                    <div class="question-text">Should I prioritize recent sources (2024-2025) or include foundational research from earlier years?</div>
+                    <button class="reply-btn">Reply</button>
+                </div>
+                
+                <div class="question-card">
+                    <div class="question-agent">Analysis Supervisor</div>
+                    <div class="question-text">The data shows conflicting trends. Should I flag this as an uncertainty or investigate further?</div>
+                    <button class="reply-btn">Reply</button>
+                </div>
+                
+                <div class="question-card">
+                    <div class="question-agent">Global Supervisor</div>
+                    <div class="question-text">Quality threshold reached for research phase. Proceed to analysis phase?</div>
+                    <button class="reply-btn">Reply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Bar -->
+    <div class="chat-bar">
+        <textarea class="chat-input" placeholder="Ask a question or provide guidance to the agents..."></textarea>
+        <button class="send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m22 2-7 20-4-9-9-4Z"/>
+                <path d="M22 2 11 13"/>
+            </svg>
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "name": "atlas",
+  "version": "3.0.0",
+  "description": "Agentic Task Logic & Analysis System - Hierarchical multi-agent system for modular reasoning and structured content generation",
+  "scripts": {
+    "dev": "scripts/dev/start-dev.sh",
+    "setup": "scripts/setup/install-deps.sh",
+    "build": "scripts/build/build-all.sh",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && python -m pytest",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "mlflow:start": "scripts/setup/start-mlflow.sh",
+    "db:init": "scripts/setup/init-db.sh",
+    "health": "scripts/utils/health-check.sh"
+  },
+  "keywords": [
+    "ai",
+    "multi-agent",
+    "langraph",
+    "letta",
+    "mlflow",
+    "orchestration",
+    "agents"
+  ],
+  "author": "CuriosityQuantified@gmail.com",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CuriosityQuantified/ATLAS"
+  },
+  "workspaces": [
+    "frontend",
+    "mlflow"
+  ]
+}
