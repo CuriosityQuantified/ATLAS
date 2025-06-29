@@ -368,10 +368,14 @@ class ATLASAgentManager:
 
 ## Next Steps
 
-Begin with **Step 1: Docker & MLflow3 Setup** by:
-1. Creating the docker-compose.yml file
-2. Initializing all database services
-3. Setting up MLflow3 tracking server
-4. Verifying monitoring dashboard access
+The project is currently in **Step 1.2: MLflow3 Monitoring Features**.
+
+**Completed:**
+- Implemented the core `ATLASMLflowTracker` class in `backend/src/mlflow/tracking.py`.
+- Implemented the Cost Calculator Utility (`backend/src/utils/cost_calculator.py`) with database-driven pricing.
+- Created the MLflow Dashboard Guide (`docs/guides/mlflow_dashboards.md`).
+
+**Next Steps:**
+1.  **Verify all MLflow features** with a test script.
 
 The comprehensive guides (mlflow3-guide.md, ag-ui-guide.md, langgraph-guide.md, letta-comprehensive-guide.md) provide detailed implementation instructions for each step.

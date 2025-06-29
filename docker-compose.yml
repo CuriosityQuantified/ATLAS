@@ -2,7 +2,7 @@
 version: '3.8'
 
 services:
-  # MLflow Tracking Server
+  # MLflow3 Tracking Server
   mlflow-server:
     image: python:3.11-slim
     container_name: atlas-mlflow-server
@@ -14,23 +14,22 @@ services:
         --default-artifact-root s3://mlflow-artifacts
         --host 0.0.0.0
         --port 5000
+        --serve-artifacts
       "
     ports:
       - "5000:5000"
     environment:
+      - MLFLOW_TRACKING_URI=http://localhost:5000
       - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
       - AWS_ACCESS_KEY_ID=minioadmin
       - AWS_SECRET_ACCESS_KEY=minioadmin
-    volumes:
-      - mlflow_data:/mlflow
     depends_on:
       - postgres
       - minio
     networks:
       - atlas-network
-    restart: unless-stopped
 
-  # PostgreSQL for MLflow Backend
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: atlas-postgres
@@ -42,12 +41,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/docker/scripts/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
-      - ./infrastructure/docker/scripts/insert_initial_pricing.sql:/docker-entrypoint-initdb.d/insert_initial_pricing.sql
     ports:
       - "5432:5432"
     networks:
       - atlas-network
-    restart: unless-stopped
 
   # MinIO for Artifact Storage
   minio:
@@ -64,8 +61,6 @@ services:
       - minio_data:/data
     networks:
       - atlas-network
-    restart: unless-stopped
-
   # Redis for Caching
   redis:
     image: redis:7-alpine
@@ -103,8 +98,8 @@ services:
     environment:
       NEO4J_AUTH: neo4j/atlas_password
       NEO4J_PLUGINS: '["apoc"]'
-      NEO4J_apoc_export_file_enabled: 'true'
-      NEO4J_apoc_import_file_enabled: 'true'
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -113,13 +108,14 @@ services:
     restart: unless-stopped
 
 volumes:
-  mlflow_data:
   postgres_data:
   minio_data:
+  mlflow_data:
   redis_data:
   chromadb_data:
   neo4j_data:
   neo4j_logs:
+
 
 networks:
   atlas-network:
