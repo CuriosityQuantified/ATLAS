@@ -1,0 +1,125 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # MLflow Tracking Server
+  mlflow-server:
+    image: python:3.11-slim
+    container_name: atlas-mlflow-server
+    command: >
+      bash -c "
+        pip install mlflow[extras]==3.0.0 psycopg2-binary boto3 &&
+        mlflow server
+        --backend-store-uri postgresql://mlflow:mlflow_password@postgres:5432/mlflow
+        --default-artifact-root s3://mlflow-artifacts
+        --host 0.0.0.0
+        --port 5000
+      "
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    volumes:
+      - mlflow_data:/mlflow
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - atlas-network
+    restart: unless-stopped
+
+  # PostgreSQL for MLflow Backend
+  postgres:
+    image: postgres:15-alpine
+    container_name: atlas-postgres
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow_password
+      POSTGRES_MULTIPLE_DATABASES: atlas_main,atlas_agents,atlas_memory
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/scripts/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - atlas-network
+    restart: unless-stopped
+
+  # MinIO for Artifact Storage
+  minio:
+    image: minio/minio:latest
+    container_name: atlas-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - atlas-network
+    restart: unless-stopped
+
+  # Redis for Caching
+  redis:
+    image: redis:7-alpine
+    container_name: atlas-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - atlas-network
+    restart: unless-stopped
+
+  # ChromaDB for Vector Storage
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: atlas-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    networks:
+      - atlas-network
+    restart: unless-stopped
+
+  # Neo4j for Knowledge Graph
+  neo4j:
+    image: neo4j:5-community
+    container_name: atlas-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/atlas_password
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_apoc_export_file_enabled: 'true'
+      NEO4J_apoc_import_file_enabled: 'true'
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - atlas-network
+    restart: unless-stopped
+
+volumes:
+  mlflow_data:
+  postgres_data:
+  minio_data:
+  redis_data:
+  chromadb_data:
+  neo4j_data:
+  neo4j_logs:
+
+networks:
+  atlas-network:
+    driver: bridge
