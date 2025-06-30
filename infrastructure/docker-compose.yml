@@ -1,5 +1,4 @@
 # docker-compose.yml
-version: '3.8'
 
 services:
   # MLflow Tracking Server
@@ -9,14 +8,10 @@ services:
     command: >
       bash -c "
         pip install mlflow[extras]==3.0.0 psycopg2-binary boto3 &&
-        mlflow server
-        --backend-store-uri postgresql://mlflow:mlflow_password@postgres:5432/mlflow
-        --default-artifact-root s3://mlflow-artifacts
-        --host 0.0.0.0
-        --port 5000
+        mlflow server --backend-store-uri postgresql://mlflow:mlflow_password@postgres:5432/mlflow --default-artifact-root s3://mlflow-artifacts --host 0.0.0.0 --port 5001 --serve-artifacts
       "
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
       - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
       - AWS_ACCESS_KEY_ID=minioadmin

@@ -103,9 +103,6 @@ class ATLASMLflowTracker:
 
             return run_id
 
-class ATLASMLflowTracker:
-    # ... (__init__, start_task_run, start_agent_run methods are unchanged) ...
-
     def log_agent_transaction(self, agent_run_id: str, model_name: str, input_tokens: int, output_tokens: int, artifacts: Optional[Dict[str, str]] = None, step: Optional[int] = None):
         """
         Logs a complete agent transaction, including performance, tokens, and calculated cost.
