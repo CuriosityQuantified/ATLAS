@@ -52,43 +52,47 @@ export default function TasksView() {
   ])
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden relative">
       {/* Left Sidebar */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-text">
-              Tasks Monitor
-            </h1>
-            
-            {/* Task Progress Dropdown */}
-            <div className="relative">
-              <button className="bg-card-glass glass-effect px-4 py-2 rounded-xl border border-border text-text hover:bg-card-bg transition-colors">
-                Task Progress ▼
-              </button>
-              {/* Progress dropdown content - implement later */}
+      {/* Main Content Area with Right Sidebar */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Scrollable Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 p-6 overflow-y-auto pb-24">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-text">
+                Tasks Monitor
+              </h1>
+              
+              {/* Task Progress Dropdown */}
+              <div className="relative">
+                <button className="bg-card-glass glass-effect px-4 py-2 rounded-xl border border-border text-text hover:bg-card-bg transition-colors">
+                  Task Progress ▼
+                </button>
+                {/* Progress dropdown content - implement later */}
+              </div>
             </div>
+
+            {/* Project Selector */}
+            <ProjectSelector
+              projects={projects}
+              selectedProject={selectedProject}
+              onProjectChange={setSelectedProject}
+            />
+
+            {/* Agent Architecture - Main scrollable content */}
+            <AgentArchitecture selectedProjectId={selectedProject?.id} />
           </div>
-
-          {/* Project Selector */}
-          <ProjectSelector
-            projects={projects}
-            selectedProject={selectedProject}
-            onProjectChange={setSelectedProject}
-          />
-
-          {/* Agent Architecture */}
-          <AgentArchitecture selectedProjectId={selectedProject?.id} />
         </div>
+
+        {/* Right Sidebar - Questions Panel */}
+        <QuestionsPanel />
       </div>
 
-      {/* Right Sidebar - Questions Panel */}
-      <QuestionsPanel />
-
-      {/* Chat Bar */}
+      {/* Chat Bar - Fixed at bottom */}
       <ChatBar />
     </div>
   )
