@@ -2,13 +2,40 @@
 
 import { useState } from 'react'
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
+import ContentRenderer from './ContentRenderer'
+
+// Multi-modal content support interfaces
+export interface MessageContent {
+  type: 'text' | 'image' | 'file' | 'audio' | 'code' | 'json' | 'chart'
+  data: any
+  mimeType?: string
+  filename?: string
+  size?: number
+}
+
+export interface MessageMetadata {
+  processingTime?: number
+  model?: string
+  tokens?: number
+  cost?: number
+}
 
 export interface DialogueMessage {
   id: string
   timestamp: Date
   direction: 'input' | 'output'
-  content: string
+  content: MessageContent | string  // Support both new and legacy format
   sender: string
+  metadata?: MessageMetadata
+}
+
+// Type guard functions
+export function isLegacyTextMessage(content: MessageContent | string): content is string {
+  return typeof content === 'string'
+}
+
+export function isMultiModalContent(content: MessageContent | string): content is MessageContent {
+  return typeof content === 'object' && content !== null && 'type' in content
 }
 
 interface AgentDialogueProps {
@@ -112,8 +139,36 @@ export default function AgentDialogue({
                     </span>
                   </div>
                   <div className="text-text leading-relaxed">
-                    {message.content}
+                    <ContentRenderer content={message.content} />
                   </div>
+                  
+                  {/* Message Metadata */}
+                  {message.metadata && (
+                    <div className="mt-2 pt-2 border-t border-border/30">
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {message.metadata.model && (
+                          <span className="bg-card-bg px-2 py-1 rounded text-muted">
+                            {message.metadata.model}
+                          </span>
+                        )}
+                        {message.metadata.tokens && (
+                          <span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded">
+                            {message.metadata.tokens} tokens
+                          </span>
+                        )}
+                        {message.metadata.cost && (
+                          <span className="bg-green-500/10 text-green-400 px-2 py-1 rounded">
+                            ${message.metadata.cost.toFixed(4)}
+                          </span>
+                        )}
+                        {message.metadata.processingTime && (
+                          <span className="bg-orange-500/10 text-orange-400 px-2 py-1 rounded">
+                            {message.metadata.processingTime}ms
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

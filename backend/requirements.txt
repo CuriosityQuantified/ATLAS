@@ -1,9 +1,30 @@
+# FastAPI & Web Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+python-multipart  # For file uploads
+
 # Monitoring & Observability
 mlflow[extras]
 
 # Database & Storage
 boto3
+psycopg2-binary  # PostgreSQL adapter
+redis>=5.0.0     # Redis client with async support
+redis[hiredis]   # High-performance Redis parser
+chromadb>=0.4.0  # Vector database
+neo4j>=5.0.0     # Graph database driver
+
+# Agent & AI Framework
+langchain>=0.1.0
+langgraph>=0.0.40
+anthropic
+openai>=1.0.0
+groq
 
 # Utilities
 python-dotenv
 requests
+pydantic>=2.0.0
+httpx
+aiofiles

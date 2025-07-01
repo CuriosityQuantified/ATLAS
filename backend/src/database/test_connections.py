@@ -182,7 +182,7 @@ def test_atlas_memory_operations():
         test_source_id = str(uuid.uuid4())
         cursor.execute("""
             SELECT create_memory_chunk(%s, %s, %s, %s)
-        """, (test_source_id, 'test', 'This is a test memory chunk', 1))
+        """, (test_source_id, 'task', 'This is a test memory chunk', 1))
         
         chunk_id = cursor.fetchone()[0]
         
@@ -196,7 +196,7 @@ def test_atlas_memory_operations():
         # Test 3: Search memory chunks
         cursor.execute("""
             SELECT * FROM search_memory_chunks(%s, %s, %s)
-        """, ('test memory', 'test', 5))
+        """, ('test memory', 'task', 5))
         
         search_results = cursor.fetchall()
         
