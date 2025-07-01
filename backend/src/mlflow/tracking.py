@@ -7,7 +7,7 @@ import os
 from typing import Dict, Any, List, Optional
 import traceback
 
-from backend.src.utils.cost_calculator import get_cost_and_pricing_details
+from src.utils.cost_calculator import get_cost_and_pricing_details
 
 # We will import the config class we already designed.
 from .config.config import MLflowConfig
@@ -18,15 +18,17 @@ class ATLASMLflowTracker:
     It provides a structured interface for tracking tasks, agents, performance, and artifacts.
     """
 
-    def __init__(self, config: MLflowConfig):
+    def __init__(self, tracking_uri: str = "http://localhost:5002"):
         """
         Initializes the tracker and sets up the connection to the MLflow server.
 
         Args:
-            config (MLflowConfig): A configuration object containing the tracking_uri.
+            tracking_uri (str): MLflow tracking server URI.
         """
-        mlflow.set_tracking_uri(config.tracking_uri)
+        mlflow.set_tracking_uri(tracking_uri)
         self.client = MlflowClient()
+        # Cost calculation function available as get_cost_and_pricing_details
+        self.current_run = None
 
     def start_task_run(self, task_id: str, task_metadata: Dict[str, Any]) -> str:
         """
@@ -325,3 +327,102 @@ class ATLASMLflowTracker:
                 # Log complex summary data as artifacts
                 summary_json = json.dumps(summary, indent=2)
                 mlflow.log_text(summary_json, artifact_file="task_summary.json")
+
+    def start_agent_run(self, agent_id: str, agent_type: str, task_id: str, parent_run_id: Optional[str] = None):
+        """Simple context manager for agent runs"""
+        class AgentRunContext:
+            def __init__(self, tracker, agent_id, agent_type, task_id):
+                self.tracker = tracker
+                self.agent_id = agent_id
+                self.agent_type = agent_type
+                self.task_id = task_id
+                self.run_id = None
+                
+            def __enter__(self):
+                mlflow.set_experiment(f"ATLAS_Agent_{self.agent_id}")
+                self.run = mlflow.start_run(run_name=f"{self.agent_type}_{self.task_id}")
+                self.run_id = self.run.info.run_id
+                
+                # Log basic parameters
+                mlflow.log_params({
+                    "agent_id": self.agent_id,
+                    "agent_type": self.agent_type,
+                    "task_id": self.task_id
+                })
+                
+                return self.run_id
+                
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                if exc_type:
+                    mlflow.set_tag("status", "FAILED")
+                    mlflow.log_param("error_type", str(exc_type.__name__))
+                    mlflow.log_param("error_message", str(exc_val))
+                else:
+                    mlflow.set_tag("status", "COMPLETED")
+                mlflow.end_run()
+        
+        return AgentRunContext(self, agent_id, agent_type, task_id)
+    
+    def log_llm_call(self, run_id: str, model_provider: str, model_name: str, 
+                     input_tokens: int, output_tokens: int, total_cost: float, 
+                     latency: float, success: bool = True):
+        """Log LLM call metrics"""
+        # Log to active run if it matches, otherwise use nested run
+        if mlflow.active_run() and mlflow.active_run().info.run_id == run_id:
+            mlflow.log_metrics({
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+                "total_cost": total_cost,
+                "latency": latency
+            })
+            
+            mlflow.log_params({
+                "model_provider": model_provider,
+                "model_name": model_name,
+                "success": success
+            })
+        else:
+            with mlflow.start_run(run_id=run_id, nested=True):
+                mlflow.log_metrics({
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": input_tokens + output_tokens,
+                    "total_cost": total_cost,
+                    "latency": latency
+                })
+                
+                mlflow.log_params({
+                    "model_provider": model_provider,
+                    "model_name": model_name,
+                    "success": success
+                })
+    
+    def log_dialogue_message_stats(self, run_id: str, direction: str, content_type: str, 
+                                  token_count: int, processing_time: float):
+        """Log dialogue message statistics"""
+        # Log to active run if it matches, otherwise use nested run
+        if mlflow.active_run() and mlflow.active_run().info.run_id == run_id:
+            mlflow.log_metrics({
+                f"{direction}_{content_type}_tokens": token_count,
+                f"{direction}_processing_time": processing_time
+            })
+        else:
+            with mlflow.start_run(run_id=run_id, nested=True):
+                mlflow.log_metrics({
+                    f"{direction}_{content_type}_tokens": token_count,
+                    f"{direction}_processing_time": processing_time
+                })
+    
+    def log_error(self, run_id: str, error_type: str, error_message: str, error_context: Dict):
+        """Log error information"""
+        with mlflow.start_run(run_id=run_id):
+            mlflow.set_tag("error_occurred", "true")
+            mlflow.log_params({
+                "error_type": error_type,
+                "error_message": error_message[:100]  # Truncate long messages
+            })
+            
+            # Log context as artifact
+            context_json = json.dumps(error_context, indent=2)
+            mlflow.log_text(context_json, artifact_file="error_context.json")

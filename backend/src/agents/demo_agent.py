@@ -16,7 +16,7 @@ import uuid
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.agui.handlers import AGUIEventBroadcaster
-from src.mlflow import tracking
+from src.mlflow.tracking import ATLASMLflowTracker
 import groq
 from dotenv import load_dotenv
 
@@ -31,7 +31,7 @@ class DemoAgent:
         self.name = name
         self.broadcaster = AGUIEventBroadcaster()
         self.groq_client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
-        self.mlflow_tracker = tracking.ATLASMLFlowTracker()
+        self.mlflow_tracker = ATLASMLflowTracker()
         self.messages = []
         
     async def process_task(self, task_id: str, user_input: str) -> Dict:
@@ -59,13 +59,13 @@ class DemoAgent:
                 direction="input",
                 content={
                     "type": "text",
-                    "data": user_input
+                    "data": user_input,
+                    "metadata": {
+                        "timestamp": datetime.now().isoformat(),
+                        "tokens": len(user_input.split())  # Simple token estimate
+                    }
                 },
-                sender="user",
-                metadata={
-                    "timestamp": datetime.now().isoformat(),
-                    "tokens": len(user_input.split())  # Simple token estimate
-                }
+                sender="user"
             )
             
             # Log input to MLflow
@@ -107,12 +107,17 @@ class DemoAgent:
                 token_count = response.usage.total_tokens if response.usage else 0
                 
                 # Calculate cost
-                cost_info = self.mlflow_tracker.cost_calculator.calculate_cost(
-                    provider="groq",
-                    model="llama-3.1-8b-instant",
-                    input_tokens=response.usage.prompt_tokens if response.usage else 0,
-                    output_tokens=response.usage.completion_tokens if response.usage else 0
-                )
+                try:
+                    from src.utils.cost_calculator import get_cost_and_pricing_details
+                    total_cost, cost_details = get_cost_and_pricing_details(
+                        "llama-3.1-8b-instant",
+                        response.usage.prompt_tokens if response.usage else 0,
+                        response.usage.completion_tokens if response.usage else 0
+                    )
+                    cost_info = {"total_cost": total_cost}
+                except Exception as e:
+                    print(f"Cost calculation error: {e}")
+                    cost_info = {"total_cost": 0.0}
                 
                 # Log LLM metrics to MLflow
                 self.mlflow_tracker.log_llm_call(
@@ -135,16 +140,16 @@ class DemoAgent:
                     direction="output",
                     content={
                         "type": "text",
-                        "data": response_text
+                        "data": response_text,
+                        "metadata": {
+                            "timestamp": datetime.now().isoformat(),
+                            "model": "llama-3.1-8b-instant",
+                            "tokens": token_count,
+                            "processing_time": processing_time,
+                            "cost": cost_info["total_cost"]
+                        }
                     },
-                    sender=self.agent_id,
-                    metadata={
-                        "timestamp": datetime.now().isoformat(),
-                        "model": "llama-3.1-8b-instant",
-                        "tokens": token_count,
-                        "processing_time": processing_time,
-                        "cost": cost_info["total_cost"]
-                    }
+                    sender=self.agent_id
                 )
                 
                 # Log output to MLflow
