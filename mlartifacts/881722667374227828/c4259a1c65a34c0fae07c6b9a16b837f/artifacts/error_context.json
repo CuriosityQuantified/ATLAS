@@ -1,0 +1,5 @@
+{
+  "model_name": "claude-3-5-haiku-20241022",
+  "provider": "anthropic",
+  "invocation_method": "direct"
+}

@@ -193,7 +193,7 @@ class AGUIEventBroadcaster:
         if self.connection_manager:
             await self.connection_manager.broadcast_to_task(event.task_id, event)
         else:
-            logger.warning(f"No connection manager available to broadcast event {event.event_id}")
+            logger.debug(f"No connection manager available to broadcast event {event.event_id} (standalone mode)")
 
 # Convenience functions for easy integration
 

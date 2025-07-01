@@ -7,7 +7,7 @@ import os
 from typing import Dict, Any, List, Optional
 import traceback
 
-from src.utils.cost_calculator import get_cost_and_pricing_details
+from ..utils.cost_calculator import get_cost_and_pricing_details
 
 # We will import the config class we already designed.
 from .config.config import MLflowConfig

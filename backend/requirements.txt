@@ -21,6 +21,7 @@ langgraph>=0.0.40
 anthropic
 openai>=1.0.0
 groq
+google-generativeai  # Google Gemini models
 
 # Utilities
 python-dotenv
