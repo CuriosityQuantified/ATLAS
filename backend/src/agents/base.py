@@ -3,11 +3,13 @@
 import asyncio
 import time
 import uuid
+import yaml
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
+from pathlib import Path
 import logging
 
 from ..utils.call_model import CallModel
@@ -83,19 +85,20 @@ class BaseAgent(ABC):
         self,
         agent_id: str,
         agent_type: str,
-        persona: str,
         task_id: Optional[str] = None,
         agui_broadcaster: Optional[AGUIEventBroadcaster] = None,
         mlflow_tracker: Optional[ATLASMLflowTracker] = None
     ):
         self.agent_id = agent_id
         self.agent_type = agent_type
-        self.persona = persona
         self.task_id = task_id or f"task_{int(time.time())}"
         self.status = AgentStatus.IDLE
         self.current_task: Optional[Task] = None
         self.task_history: List[Task] = []
         self.created_at = datetime.now()
+        
+        # Load persona from YAML file based on agent_type
+        self.persona = self._load_persona_from_yaml(agent_type)
         
         # Initialize tracking components
         self.agui_broadcaster = agui_broadcaster or AGUIEventBroadcaster(connection_manager=None)
@@ -112,6 +115,23 @@ class BaseAgent(ABC):
         )
         
         logger.info(f"Initialized {self.agent_type} agent: {self.agent_id}")
+    
+    def _load_persona_from_yaml(self, agent_type: str) -> str:
+        """Load agent persona from YAML file. Simple and direct approach."""
+        # Convert agent type to filename (e.g., "Global Supervisor" -> "global_supervisor")
+        yaml_filename = agent_type.lower().replace(' ', '_') + ".yaml"
+        yaml_file = Path(__file__).parent.parent / "prompts" / yaml_filename
+        
+        try:
+            with open(yaml_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            return config.get('persona', f"You are a {agent_type} in the ATLAS multi-agent system.")
+        except FileNotFoundError:
+            logger.warning(f"No YAML prompt found for {agent_type} at {yaml_file}. Using default persona.")
+            return f"You are a {agent_type} in the ATLAS multi-agent system."
+        except Exception as e:
+            logger.error(f"Error loading YAML prompt for {agent_type}: {e}")
+            return f"You are a {agent_type} in the ATLAS multi-agent system."
     
     async def update_status(self, new_status: AgentStatus, context: Optional[str] = None):
         """Update agent status and broadcast change."""
@@ -214,14 +234,16 @@ class BaseAgent(ABC):
         pass
     
     async def get_system_prompt(self) -> str:
-        """Get the agent's system prompt including persona and current context."""
-        base_prompt = f"""You are {self.agent_id}, a {self.agent_type} in the ATLAS multi-agent system.
+        """Get the agent's system prompt with current context."""
+        system_prompt = f"""You are {self.agent_id}, a {self.agent_type} in the ATLAS multi-agent system.
 
 PERSONA & RESPONSIBILITIES:
 {self.persona}
 
 CURRENT STATUS: {self.status.value}
 TASK ID: {self.task_id}
+AGENT ID: {self.agent_id}
+CREATED: {self.created_at.isoformat()}
 
 CAPABILITIES:
 - You can call the Library agent for knowledge management: call_library(operation, query, data, context)
@@ -235,7 +257,7 @@ GUIDELINES:
 - Use the Library agent for persistent knowledge management
 - Provide clear, actionable results with proper context"""
 
-        return base_prompt
+        return system_prompt
     
     def cleanup(self):
         """Cleanup agent resources."""
@@ -250,12 +272,11 @@ class BaseSupervisor(BaseAgent):
         self,
         agent_id: str,
         agent_type: str,
-        persona: str,
         team_name: str,
         worker_agent_ids: Optional[List[str]] = None,
         **kwargs
     ):
-        super().__init__(agent_id, agent_type, persona, **kwargs)
+        super().__init__(agent_id, agent_type, **kwargs)
         self.team_name = team_name
         self.worker_agent_ids = worker_agent_ids or []
         self.worker_statuses: Dict[str, AgentStatus] = {}

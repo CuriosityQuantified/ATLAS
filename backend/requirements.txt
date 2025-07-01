@@ -29,3 +29,4 @@ requests
 pydantic>=2.0.0
 httpx
 aiofiles
+pyyaml>=6.0      # YAML configuration management
