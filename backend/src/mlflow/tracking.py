@@ -416,7 +416,8 @@ class ATLASMLflowTracker:
     
     def log_error(self, run_id: str, error_type: str, error_message: str, error_context: Dict):
         """Log error information"""
-        with mlflow.start_run(run_id=run_id):
+        # Check if we're already in the target run
+        if mlflow.active_run() and mlflow.active_run().info.run_id == run_id:
             mlflow.set_tag("error_occurred", "true")
             mlflow.log_params({
                 "error_type": error_type,
@@ -426,3 +427,14 @@ class ATLASMLflowTracker:
             # Log context as artifact
             context_json = json.dumps(error_context, indent=2)
             mlflow.log_text(context_json, artifact_file="error_context.json")
+        else:
+            with mlflow.start_run(run_id=run_id):
+                mlflow.set_tag("error_occurred", "true")
+                mlflow.log_params({
+                    "error_type": error_type,
+                    "error_message": error_message[:100]  # Truncate long messages
+                })
+                
+                # Log context as artifact
+                context_json = json.dumps(error_context, indent=2)
+                mlflow.log_text(context_json, artifact_file="error_context.json")

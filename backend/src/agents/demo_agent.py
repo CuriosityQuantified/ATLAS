@@ -178,17 +178,19 @@ class DemoAgent:
                     task_id, self.agent_id, "processing", "active"
                 )
                 
-                # Broadcast completion
-                await self.broadcaster.broadcast_event(
+                # Broadcast completion - use AGUIEventFactory directly
+                from src.agui.events import AGUIEvent, AGUIEventType
+                completion_event = AGUIEvent(
+                    event_type=AGUIEventType.AGENT_COMPLETED,
                     task_id=task_id,
-                    event_type="agent_completed",
+                    agent_id=self.agent_id,
                     data={
-                        "agent_id": self.agent_id,
                         "success": True,
                         "processing_time": processing_time,
                         "cost": cost_info["total_cost"]
                     }
                 )
+                await self.broadcaster._broadcast_event(completion_event)
                 
                 return {
                     "success": True,
@@ -210,15 +212,9 @@ class DemoAgent:
                     error_context={"user_input": user_input}
                 )
                 
-                # Broadcast error
-                await self.broadcaster.broadcast_event(
-                    task_id=task_id,
-                    event_type="agent_error",
-                    data={
-                        "agent_id": self.agent_id,
-                        "error": str(e),
-                        "error_type": type(e).__name__
-                    }
+                # Broadcast error - use existing broadcast_error method
+                await self.broadcaster.broadcast_error(
+                    task_id, self.agent_id, type(e).__name__, str(e), ""
                 )
                 
                 # Update status to idle
@@ -235,18 +231,9 @@ class DemoAgent:
     async def ask_user_question(self, task_id: str, question: str) -> Optional[str]:
         """Ask the user a question and wait for response"""
         
-        # Broadcast user approval required event
-        question_id = str(uuid.uuid4())
-        await self.broadcaster.broadcast_event(
-            task_id=task_id,
-            event_type="user_approval_required",
-            data={
-                "agent_id": self.agent_id,
-                "question_id": question_id,
-                "question": question,
-                "options": ["Yes", "No", "Provide more details"],
-                "timeout": 60  # 60 second timeout
-            }
+        # Broadcast user approval required event - use existing method
+        await self.broadcaster.broadcast_user_approval_required(
+            task_id, self.agent_id, "question", question, ["Yes", "No", "Provide more details"]
         )
         
         # In a real implementation, this would wait for WebSocket response
