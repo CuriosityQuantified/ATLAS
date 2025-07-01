@@ -14,7 +14,7 @@ import logging
 from dotenv import load_dotenv
 
 # Import AG-UI server components
-from src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory
+from backend.src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory, AGUIServer
 
 # Load environment variables
 load_dotenv()
@@ -31,8 +31,18 @@ async def lifespan(app: FastAPI):
     """Application lifespan management."""
     logger.info("Starting ATLAS backend server with AG-UI integration...")
     
-    # Initialize AG-UI event broadcaster
-    app.state.agui_broadcaster = AGUIEventBroadcaster()
+    # Get reference to the AG-UI server (created by create_agui_server)
+    # The server instance is stored on the app during creation
+    agui_server = getattr(app, '_agui_server', None)
+    if agui_server:
+        app.state.agui_server = agui_server
+        # Initialize AG-UI event broadcaster with connection manager
+        app.state.agui_broadcaster = AGUIEventBroadcaster(agui_server.connection_manager)
+        logger.info("AG-UI broadcaster initialized with connection manager")
+    else:
+        # Fallback without connection manager
+        app.state.agui_broadcaster = AGUIEventBroadcaster()
+        logger.warning("AG-UI broadcaster initialized without connection manager")
     
     # TODO: Initialize database connections
     # TODO: Initialize MLflow tracking
@@ -47,6 +57,9 @@ async def lifespan(app: FastAPI):
 
 # Create the main FastAPI application with AG-UI integration
 app = create_agui_server()
+
+# Store reference to the AG-UI server instance for access to connection manager
+app.state.agui_server = None  # Will be set during app initialization
 
 # Update app configuration
 app.title = "ATLAS Backend API"
@@ -216,6 +229,19 @@ async def list_agents():
     }
 
 # Development and Testing Endpoints
+
+@app.get("/api/agui/broadcaster")
+async def get_agui_broadcaster():
+    """Get a reference to the shared AG-UI broadcaster for agents."""
+    broadcaster = getattr(app.state, 'agui_broadcaster', None)
+    if broadcaster:
+        return {
+            "status": "available",
+            "has_connection_manager": broadcaster.connection_manager is not None,
+            "message": "AG-UI broadcaster ready for agent integration"
+        }
+    else:
+        raise HTTPException(status_code=500, detail="AG-UI broadcaster not initialized")
 
 @app.post("/api/dev/simulate-agent-activity")
 async def simulate_agent_activity(simulation_data: Dict[str, Any]):

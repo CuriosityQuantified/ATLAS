@@ -328,4 +328,7 @@ def create_agui_server() -> FastAPI:
     # Initialize AG-UI server
     agui_server = AGUIServer(app)
     
+    # Store reference to AG-UI server on app for later access
+    app._agui_server = agui_server
+    
     return app
