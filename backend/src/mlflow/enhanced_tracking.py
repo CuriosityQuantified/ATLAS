@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, asdict
 import logging
 
-from .tracking import ATLASMLflowTracker, AgentEvent
+from .tracking import ATLASMLflowTracker
 
 try:
     import mlflow
@@ -93,18 +93,32 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         enable_detailed_logging: bool = True
     ):
         """Initialize enhanced ATLAS MLflow tracker."""
-        super().__init__(tracking_uri, experiment_name, auto_start_run)
+        super().__init__(tracking_uri)
         
         self.enable_detailed_logging = enable_detailed_logging
+        self.current_run_id = None
         
         # Enhanced tracking data
         self.llm_interactions: List[LLMInteraction] = []
         self.tool_calls: List[ToolCall] = []
         self.conversation_turns: List[ConversationTurn] = []
         
+        # Auto-start run if requested
+        if auto_start_run and experiment_name:
+            try:
+                mlflow.set_experiment(experiment_name)
+                run = mlflow.start_run()
+                self.current_run_id = run.info.run_id
+                self.current_run = run
+                logger.info(f"Auto-started MLflow run: {self.current_run_id}")
+            except Exception as e:
+                logger.error(f"Failed to auto-start MLflow run: {e}")
+                self.current_run_id = None
+        
         # Performance aggregations
         self.provider_stats: Dict[str, Dict[str, float]] = {}
         self.agent_performance: Dict[str, Dict[str, float]] = {}
+        self.session_metrics: Dict[str, float] = {}
         self.cost_tracking: Dict[str, float] = {
             "total_cost_usd": 0.0,
             "anthropic_cost": 0.0,
@@ -115,8 +129,62 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         
         logger.info("Enhanced ATLAS tracker initialized with comprehensive monitoring")
     
+    def log_task_assignment(self, task_id: str, task_type: str, assigned_agent: str, task_data: Dict[str, Any]):
+        """Log task assignment information (compatibility method)."""
+        if not self.current_run_id:
+            logger.debug("No active run - skipping task assignment logging")
+            return
+            
+        try:
+            # Log task assignment as parameters and tags - the run is already active
+            mlflow.log_params({
+                "task_id": task_id,
+                "task_type": task_type,
+                "assigned_agent": assigned_agent
+            })
+            
+            mlflow.set_tags({
+                "task_type": task_type,
+                "assigned_agent": assigned_agent,
+                "has_task_assignment": "true"
+            })
+            
+            # Log task data as artifact
+            if self.enable_detailed_logging:
+                assignment_data = {
+                    "task_id": task_id,
+                    "task_type": task_type,
+                    "assigned_agent": assigned_agent,
+                    "task_data": task_data,
+                    "assigned_at": datetime.now().isoformat()
+                }
+                self._log_json_artifact(assignment_data, "task_assignment.json")
+                    
+            logger.info(f"Logged task assignment: {task_id} -> {assigned_agent}")
+        except Exception as e:
+            logger.error(f"Failed to log task assignment: {e}")
+    
+    def _log_json_artifact(self, data: Dict[str, Any], filename: str):
+        """Helper method to log JSON data as MLflow artifact."""
+        if not self.current_run_id:
+            logger.debug(f"No active run - skipping artifact logging for {filename}")
+            return
+            
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(data, f, indent=2, default=str)
+                temp_path = f.name
+            
+            # Log artifact directly - the run is already active
+            mlflow.log_artifact(temp_path, filename)
+            os.unlink(temp_path)  # Clean up temp file
+            logger.debug(f"Successfully logged artifact: {filename}")
+        except Exception as e:
+            logger.error(f"Failed to log JSON artifact {filename}: {e}")
+    
     def log_llm_interaction(
         self,
+        interaction_id: str,
         agent_id: str,
         model_name: str,
         provider: str,
@@ -134,10 +202,8 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         request_metadata: Optional[Dict[str, Any]] = None
     ):
         """Log comprehensive LLM interaction data."""
-        if not mlflow or not self.current_run_id:
+        if not mlflow:
             return
-        
-        interaction_id = f"llm_{agent_id}_{int(time.time())}_{hashlib.md5(user_prompt.encode()).hexdigest()[:8]}"
         
         interaction = LLMInteraction(
             interaction_id=interaction_id,
@@ -189,7 +255,12 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         stats["success_rate"] = (successful_calls / stats["total_calls"]) * 100
         
         try:
-            # Log detailed metrics
+            # Log detailed metrics only if we have an active run
+            if not self.current_run_id:
+                logger.debug("No active run - skipping metrics logging")
+                return
+                
+            # Log detailed metrics directly - the run is already active
             mlflow.log_metrics({
                 # Interaction-specific metrics
                 f"{agent_id}_llm_calls": len([i for i in self.llm_interactions if i.agent_id == agent_id]),
@@ -207,6 +278,15 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
                 "total_llm_interactions": len(self.llm_interactions),
                 "total_tokens_used": sum(i.total_tokens for i in self.llm_interactions),
                 "total_cost_usd": self.cost_tracking["total_cost_usd"]
+            })
+            
+            # Update tags
+            mlflow.set_tags({
+                f"{agent_id}_uses_llm": "true",
+                f"uses_{provider}": "true",
+                f"uses_{model_name.replace('/', '_')}": "true",
+                "has_llm_interactions": "true",
+                f"{provider}_model_count": str(len(set(i.model_name for i in self.llm_interactions if i.provider == provider)))
             })
             
             # Log comprehensive interaction as artifact
@@ -229,48 +309,38 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
                     f"llm_interactions/{provider}/{model_name.replace('/', '_')}_{interaction_id}.json"
                 )
             
-            # Update tags
-            mlflow.set_tags({
-                f"{agent_id}_uses_llm": "true",
-                f"uses_{provider}": "true",
-                f"uses_{model_name.replace('/', '_')}": "true",
-                "has_llm_interactions": "true",
-                f"{provider}_model_count": str(len(set(i.model_name for i in self.llm_interactions if i.provider == provider)))
-            })
             
         except Exception as e:
             logger.error(f"Failed to log LLM interaction: {e}")
     
     def log_tool_call(
         self,
+        tool_call_id: str,
         agent_id: str,
         tool_name: str,
-        tool_type: str,
-        input_parameters: Dict[str, Any],
-        output_result: Any,
-        processing_time_ms: float,
+        input_data: Dict[str, Any],
+        output_data: Any,
+        execution_time_ms: float,
         success: bool = True,
         error_message: Optional[str] = None,
-        tool_metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None
     ):
         """Log detailed tool call information."""
-        if not mlflow or not self.current_run_id:
+        if not mlflow:
             return
         
-        call_id = f"tool_{agent_id}_{tool_name}_{int(time.time())}"
-        
         tool_call = ToolCall(
-            call_id=call_id,
+            call_id=tool_call_id,
             agent_id=agent_id,
             tool_name=tool_name,
-            tool_type=tool_type,
-            input_parameters=input_parameters,
-            output_result=output_result,
+            tool_type="library",  # Default tool type
+            input_parameters=input_data,
+            output_result=output_data,
             timestamp=datetime.now().isoformat(),
-            processing_time_ms=processing_time_ms,
+            processing_time_ms=execution_time_ms,
             success=success,
             error_message=error_message,
-            tool_metadata=tool_metadata or {}
+            tool_metadata=metadata or {}
         )
         
         self.tool_calls.append(tool_call)
@@ -278,15 +348,15 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         try:
             # Log tool metrics
             agent_tool_calls = len([t for t in self.tool_calls if t.agent_id == agent_id])
-            tool_type_calls = len([t for t in self.tool_calls if t.tool_type == tool_type])
+            tool_type_calls = len([t for t in self.tool_calls if t.tool_type == "library"])
             successful_calls = len([t for t in self.tool_calls if t.tool_name == tool_name and t.success])
             total_tool_calls = len([t for t in self.tool_calls if t.tool_name == tool_name])
             
             mlflow.log_metrics({
                 f"{agent_id}_tool_calls": agent_tool_calls,
                 f"{agent_id}_{tool_name}_calls": len([t for t in self.tool_calls if t.agent_id == agent_id and t.tool_name == tool_name]),
-                f"{tool_type}_calls_total": tool_type_calls,
-                f"{tool_name}_avg_latency": processing_time_ms,
+                f"library_calls_total": tool_type_calls,
+                f"{tool_name}_avg_latency": execution_time_ms,
                 f"{tool_name}_success_rate": (successful_calls / max(1, total_tool_calls)) * 100,
                 "total_tool_calls": len(self.tool_calls)
             })
@@ -297,22 +367,22 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
                 
                 # Add analysis
                 tool_data["call_analysis"] = {
-                    "input_size": len(str(input_parameters)),
-                    "output_size": len(str(output_result)),
-                    "processing_efficiency": len(str(output_result)) / max(1, processing_time_ms) * 1000,  # bytes per second
-                    "parameter_count": len(input_parameters) if isinstance(input_parameters, dict) else 0
+                    "input_size": len(str(input_data)),
+                    "output_size": len(str(output_data)),
+                    "processing_efficiency": len(str(output_data)) / max(1, execution_time_ms) * 1000,  # bytes per second
+                    "parameter_count": len(input_data) if isinstance(input_data, dict) else 0
                 }
                 
                 self._log_json_artifact(
                     tool_data,
-                    f"tool_calls/{tool_type}/{tool_name}_{call_id}.json"
+                    f"tool_calls/library/{tool_name}_{tool_call_id}.json"
                 )
             
             # Update tags
             mlflow.set_tags({
-                f"{agent_id}_uses_{tool_type}": "true",
+                f"{agent_id}_uses_library": "true",
                 f"uses_tool_{tool_name}": "true",
-                f"{tool_type}_tools_count": str(len(set(t.tool_name for t in self.tool_calls if t.tool_type == tool_type))),
+                f"library_tools_count": str(len(set(t.tool_name for t in self.tool_calls if t.tool_type == "library"))),
                 "has_tool_calls": "true"
             })
             
@@ -321,28 +391,29 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
     
     def log_conversation_turn(
         self,
+        turn_id: str,
         agent_id: str,
-        turn_type: str,
-        content: str,
-        conversation_context: Dict[str, Any],
-        parent_turn_id: Optional[str] = None,
-        token_count: Optional[int] = None
+        user_message: str,
+        agent_response: str,
+        turn_number: int,
+        context: Dict[str, Any],
+        response_time_ms: float,
+        user_satisfaction: Optional[float] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ):
         """Log conversation turns for context tracking."""
-        if not mlflow or not self.current_run_id:
+        if not mlflow:
             return
-        
-        turn_id = f"turn_{agent_id}_{int(time.time())}_{len(self.conversation_turns)}"
         
         turn = ConversationTurn(
             turn_id=turn_id,
             agent_id=agent_id,
-            turn_type=turn_type,
-            content=content,
+            turn_type="user_agent_interaction",
+            content=f"User: {user_message}\nAgent: {agent_response}",
             timestamp=datetime.now().isoformat(),
-            conversation_context=conversation_context,
-            parent_turn_id=parent_turn_id,
-            token_count=token_count
+            conversation_context=context,
+            parent_turn_id=None,
+            token_count=len(user_message.split()) + len(agent_response.split())
         )
         
         self.conversation_turns.append(turn)
@@ -350,31 +421,34 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         try:
             # Log conversation metrics
             agent_turns = len([t for t in self.conversation_turns if t.agent_id == agent_id])
-            turn_type_count = len([t for t in self.conversation_turns if t.turn_type == turn_type])
+            turn_type_count = len([t for t in self.conversation_turns if t.turn_type == "user_agent_interaction"])
             
             mlflow.log_metrics({
                 f"{agent_id}_conversation_turns": agent_turns,
-                f"{turn_type}_turns_total": turn_type_count,
+                f"user_agent_interaction_turns_total": turn_type_count,
                 "total_conversation_turns": len(self.conversation_turns),
                 "conversation_depth": len([t for t in self.conversation_turns if t.parent_turn_id is not None])
             })
             
-            if token_count:
-                mlflow.log_metric(f"{agent_id}_conversation_tokens", token_count)
+            if turn.token_count:
+                mlflow.log_metric(f"{agent_id}_conversation_tokens", turn.token_count)
             
             # Log as artifact
             if self.enable_detailed_logging:
                 turn_data = asdict(turn)
                 turn_data["turn_analysis"] = {
-                    "content_length": len(content),
-                    "word_count": len(content.split()),
-                    "context_keys": list(conversation_context.keys()),
-                    "has_parent": parent_turn_id is not None
+                    "content_length": len(turn.content),
+                    "word_count": len(turn.content.split()),
+                    "context_keys": list(context.keys()),
+                    "has_parent": False,
+                    "response_time_ms": response_time_ms,
+                    "turn_number": turn_number,
+                    "user_satisfaction": user_satisfaction
                 }
                 
                 self._log_json_artifact(
                     turn_data,
-                    f"conversations/{agent_id}/{turn_type}_{turn_id}.json"
+                    f"conversations/{agent_id}/user_agent_interaction_{turn_id}.json"
                 )
             
             # Update tags
@@ -396,7 +470,7 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         prompt_modifications: Optional[Dict[str, Any]] = None
     ):
         """Log agent prompt engineering and persona management."""
-        if not mlflow or not self.current_run_id:
+        if not mlflow:
             return
         
         try:
@@ -449,7 +523,7 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         duration_ms: Optional[float] = None
     ):
         """Log multi-agent coordination patterns."""
-        if not mlflow or not self.current_run_id:
+        if not mlflow:
             return
         
         try:
@@ -522,9 +596,22 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         
         return summary
     
+    def get_current_run_url(self) -> Optional[str]:
+        """Get the URL for the current MLflow run."""
+        if self.current_run_id:
+            # Get experiment ID from current run
+            try:
+                run = self.client.get_run(self.current_run_id)
+                experiment_id = run.info.experiment_id
+                return f"http://localhost:5002/#/experiments/{experiment_id}/runs/{self.current_run_id}"
+            except Exception as e:
+                logger.error(f"Failed to get run URL: {e}")
+                return None
+        return None
+    
     def log_enhanced_session_summary(self):
         """Log enhanced session summary with all tracking data."""
-        if not mlflow or not self.current_run_id:
+        if not mlflow:
             return
         
         try:
@@ -568,6 +655,10 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         try:
             if self.current_run_id:
                 self.log_enhanced_session_summary()
+                # End the current run
+                mlflow.end_run()
+                self.current_run_id = None
+                self.current_run = None
             super().cleanup()
             logger.info("Enhanced ATLAS tracker cleaned up successfully")
         except Exception as e:

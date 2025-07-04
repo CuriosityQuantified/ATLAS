@@ -14,7 +14,10 @@ import logging
 from dotenv import load_dotenv
 
 # Import AG-UI server components
-from backend.src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory, AGUIServer
+from src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory, AGUIServer
+
+# Import agent API endpoints
+from src.api.agent_endpoints import router as agent_router
 
 # Load environment variables
 load_dotenv()
@@ -74,6 +77,8 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001",  # Alternative frontend port
         "http://127.0.0.1:3001",
+        "http://localhost:3002",  # Current frontend port
+        "http://127.0.0.1:3002",
         "http://localhost:8080"   # Legacy support
     ],
     allow_credentials=True,
@@ -83,6 +88,9 @@ app.add_middleware(
 
 # Add lifespan to the existing app
 app.router.lifespan_context = lifespan
+
+# Include agent API router
+app.include_router(agent_router, prefix="/api")
 
 @app.get("/")
 async def root():

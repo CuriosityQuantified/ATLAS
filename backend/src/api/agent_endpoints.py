@@ -65,7 +65,7 @@ def get_agui_broadcaster(request: Request) -> AGUIEventBroadcaster:
 # Dependency removed - tracking now integrated into agents directly
 
 # Create router
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+router = APIRouter(tags=["agents"])
 
 @router.post("/tasks", response_model=Dict[str, Any])
 async def create_agent_task(
@@ -77,36 +77,9 @@ async def create_agent_task(
         # Generate unique task ID
         task_id = f"task_{int(time.time())}_{str(uuid.uuid4())[:8]}"
         
-        # Initialize Enhanced MLflow Tracker for this task
+        # Temporarily disable MLflow tracking to test core functionality
         mlflow_tracker = None
-        experiment_name = f"ATLAS_Task_{task_id}"
-        
-        try:
-            mlflow_tracker = EnhancedATLASTracker(
-                tracking_uri="http://localhost:5002",
-                experiment_name=experiment_name,
-                auto_start_run=True,
-                enable_detailed_logging=True
-            )
-            
-            # Log task creation parameters
-            if mlflow_tracker.current_run_id:
-                mlflow_tracker.log_task_assignment(
-                    task_id=task_id,
-                    task_type=request.task_type,
-                    assigned_agent="global_supervisor",
-                    task_data={
-                        "description": request.description,
-                        "priority": request.priority,
-                        "context": request.context or {}
-                    }
-                )
-            
-            logger.info(f"Enhanced MLflow tracker initialized for task {task_id}")
-            
-        except Exception as e:
-            logger.warning(f"Failed to initialize MLflow tracker: {e}")
-            mlflow_tracker = None
+        logger.info(f"MLflow tracking disabled for testing - task {task_id}")
         
         # Create task object
         task = Task(
@@ -150,7 +123,8 @@ async def create_agent_task(
         await broadcaster.broadcast_task_created(
             task_id=task_id,
             task_type=request.task_type,
-            description=request.description
+            description=request.description,
+            priority=request.priority
         )
         
         # Broadcast initial agent status
@@ -199,7 +173,8 @@ async def start_agent_task(
         # Broadcast task start
         await broadcaster.broadcast_task_started(
             task_id=task_id,
-            agent_id="global_supervisor"
+            initial_prompt=task.description,
+            teams_involved=["global_supervisor", "library_agent"]
         )
         
         # Start task processing asynchronously
@@ -233,8 +208,29 @@ async def _process_task_async(
         active_agents[task_id]["completed_at"] = datetime.now()
         active_agents[task_id]["result"] = result
         
-        # Broadcast completion
-        if result.success:
+        # Broadcast the actual agent response content
+        logger.info(f"Task result - Success: {result.success}, Content length: {len(str(result.content)) if result.content else 0}")
+        
+        if result.success and result.content:
+            logger.info(f"Broadcasting dialogue update for task {task_id}")
+            try:
+                # Broadcast the agent's detailed response
+                await broadcaster.broadcast_dialogue_update(
+                    task_id=task_id,
+                    agent_id="global_supervisor",
+                    message_id=f"response_{int(time.time())}",
+                    direction="output",
+                    content={
+                        "type": "text",
+                        "data": str(result.content)
+                    },
+                    sender="global_supervisor"
+                )
+                logger.info(f"Successfully broadcasted dialogue update for task {task_id}")
+            except Exception as e:
+                logger.error(f"Failed to broadcast dialogue update: {e}")
+            
+            # Then broadcast task completion
             await broadcaster.broadcast_task_completed(
                 task_id=task_id,
                 agent_id="global_supervisor",
@@ -347,15 +343,84 @@ async def send_user_input(
             sender="user"
         )
         
-        # TODO: Actually process the user input with the agent
-        # For now, just acknowledge receipt
-        
-        return {
-            "task_id": task_id,
-            "agent_id": target_agent_id,
-            "status": "received",
-            "message": f"User input forwarded to {target_agent_id}"
-        }
+        # Process the user input with the agent to capture metrics
+        try:
+            if target_agent_id == "global_supervisor" and "global_supervisor" in task_data:
+                agent = task_data["global_supervisor"]
+                
+                # Use the agent's CallModel to process the user input
+                system_prompt = await agent.get_system_prompt()
+                
+                response = await agent.call_model.call_model(
+                    model_name="claude-3-5-haiku-20241022",
+                    system_prompt=system_prompt,
+                    most_recent_message=request.message,
+                    max_tokens=500,
+                    temperature=0.7
+                )
+                
+                # Log conversation turn if we have enhanced tracker
+                if hasattr(agent.mlflow_tracker, 'log_conversation_turn') and response.success:
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        agent.mlflow_tracker.log_conversation_turn,
+                        str(uuid.uuid4()),  # turn_id
+                        agent.agent_id,     # agent_id
+                        request.message,    # user_message
+                        response.content,   # agent_response
+                        1,                  # turn_number
+                        request.context or {},  # context
+                        response.response_time * 1000 if response.response_time else 0.0,  # response_time_ms
+                        None,               # user_satisfaction
+                        {"frontend_input": True}  # metadata
+                    )
+                
+                if response.success:
+                    # Broadcast the agent's response
+                    await broadcaster.broadcast_dialogue_update(
+                        task_id=task_id,
+                        agent_id=target_agent_id,
+                        message_id=str(uuid.uuid4()),
+                        direction="output",
+                        content={
+                            "type": "text",
+                            "data": response.content
+                        },
+                        sender=target_agent_id
+                    )
+                    
+                    return {
+                        "task_id": task_id,
+                        "agent_id": target_agent_id,
+                        "status": "processed",
+                        "message": f"User input processed by {target_agent_id}",
+                        "response": response.content[:200] + "..." if len(response.content) > 200 else response.content
+                    }
+                else:
+                    logger.error(f"Agent {target_agent_id} failed to process input: {response.error}")
+                    return {
+                        "task_id": task_id,
+                        "agent_id": target_agent_id,
+                        "status": "error",
+                        "message": f"Failed to process input: {response.error}"
+                    }
+            else:
+                # For other agents or if agent not found, just acknowledge
+                return {
+                    "task_id": task_id,
+                    "agent_id": target_agent_id,
+                    "status": "received",
+                    "message": f"User input forwarded to {target_agent_id}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error processing user input with agent {target_agent_id}: {e}")
+            return {
+                "task_id": task_id,
+                "agent_id": target_agent_id,
+                "status": "error",
+                "message": f"Error processing input: {str(e)}"
+            }
         
     except HTTPException:
         raise

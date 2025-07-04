@@ -2,12 +2,15 @@
 
 import time
 import uuid
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 from .base import BaseSupervisor, Task, TaskResult, AgentStatus
 from ..agui.handlers import AGUIEventBroadcaster
 from ..mlflow.tracking import ATLASMLflowTracker
+
+logger = logging.getLogger(__name__)
 
 class GlobalSupervisorAgent(BaseSupervisor):
     """Global Supervisor Agent - Top-level orchestrator for ATLAS multi-agent system."""
@@ -53,54 +56,65 @@ class GlobalSupervisorAgent(BaseSupervisor):
         start_time = time.time()
         
         try:
-            # Start MLflow run for global coordination
-            with self.mlflow_tracker.start_agent_run(
-                agent_id=self.agent_id,
-                agent_type=self.agent_type,
+            # Use simple run_id for tracking (don't depend on complex MLflow context managers)
+            run_id = f"global_supervisor_{task.task_id}"
+            
+            # Try to start MLflow run if available (but don't fail if it doesn't work)
+            if self.mlflow_tracker and hasattr(self.mlflow_tracker, 'start_agent_run'):
+                try:
+                    mlflow_run_context = self.mlflow_tracker.start_agent_run(
+                        agent_id=self.agent_id,
+                        agent_type=self.agent_type,
+                        task_id=task.task_id,
+                        parent_run_id=None
+                    )
+                    # Don't use context manager for now - just note that MLflow is available
+                    logger.info(f"MLflow tracking available for task {task.task_id}")
+                except Exception as mlflow_error:
+                    logger.warning(f"MLflow run start failed (continuing without it): {mlflow_error}")
+            else:
+                logger.info("MLflow tracking not available - using basic tracking")
+            
+            # Store project information
+            self.active_projects[task.task_id] = {
+                "task": task,
+                "start_time": datetime.now(),
+                "teams_assigned": [],
+                "completion_status": {},
+                "deliverables": {},
+                "run_id": run_id
+            }
+            
+            # Analyze task and plan decomposition
+            decomposition_plan = await self._analyze_and_decompose_task(task, run_id)
+            
+            # Coordinate team execution
+            coordination_result = await self._coordinate_team_execution(decomposition_plan, task, run_id)
+            
+            # Monitor and synthesize results
+            final_result = await self._synthesize_global_result(task, coordination_result, run_id)
+            
+            processing_time = time.time() - start_time
+            
+            # Create final task result
+            task_result = TaskResult(
                 task_id=task.task_id,
-                parent_run_id=None
-            ) as run_id:
-                
-                # Store project information
-                self.active_projects[task.task_id] = {
-                    "task": task,
-                    "start_time": datetime.now(),
-                    "teams_assigned": [],
-                    "completion_status": {},
-                    "deliverables": {},
-                    "run_id": run_id
-                }
-                
-                # Analyze task and plan decomposition
-                decomposition_plan = await self._analyze_and_decompose_task(task, run_id)
-                
-                # Coordinate team execution
-                coordination_result = await self._coordinate_team_execution(decomposition_plan, task, run_id)
-                
-                # Monitor and synthesize results
-                final_result = await self._synthesize_global_result(task, coordination_result, run_id)
-                
-                processing_time = time.time() - start_time
-                
-                # Create final task result
-                task_result = TaskResult(
-                    task_id=task.task_id,
-                    agent_id=self.agent_id,
-                    result_type="global_coordination",
-                    content=final_result,
-                    success=True,
-                    processing_time=processing_time,
-                    metadata={
-                        "teams_involved": len(decomposition_plan.get("team_assignments", [])),
-                        "coordination_strategy": decomposition_plan.get("strategy", "sequential"),
-                        "quality_threshold_met": True,
-                        "deliverable_types": list(final_result.get("deliverables", {}).keys())
-                    },
-                    requires_review=False  # Global supervisor results don't need review
-                )
-                
-                await self.update_status(AgentStatus.COMPLETED, f"Global task completed successfully")
-                return task_result
+                agent_id=self.agent_id,
+                result_type="global_coordination",
+                content=final_result,
+                success=True,
+                processing_time=processing_time,
+                metadata={
+                    "teams_involved": len(decomposition_plan.get("team_assignments", [])),
+                    "coordination_strategy": decomposition_plan.get("strategy", "sequential"),
+                    "quality_threshold_met": True,
+                    "deliverable_types": list(final_result.get("deliverables", {}).keys())
+                },
+                requires_review=False  # Global supervisor results don't need review
+            )
+            
+            await self.update_status(AgentStatus.COMPLETED, f"Global task completed successfully")
+            return task_result
                 
         except Exception as e:
             processing_time = time.time() - start_time
@@ -160,8 +174,7 @@ Respond with valid JSON only."""
             system_prompt=await self.get_system_prompt(),
             most_recent_message=decomposition_prompt,
             max_tokens=800,
-            temperature=0.3,
-            run_id=run_id
+            temperature=0.3
         )
         
         if response.success:
