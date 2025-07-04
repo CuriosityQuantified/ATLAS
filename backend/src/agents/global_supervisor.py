@@ -7,13 +7,14 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 from .base import BaseSupervisor, Task, TaskResult, AgentStatus
+from .letta_simple import SimpleLettaAgentMixin
 from ..agui.handlers import AGUIEventBroadcaster
 from ..mlflow.tracking import ATLASMLflowTracker
 
 logger = logging.getLogger(__name__)
 
-class GlobalSupervisorAgent(BaseSupervisor):
-    """Global Supervisor Agent - Top-level orchestrator for ATLAS multi-agent system."""
+class GlobalSupervisorAgent(BaseSupervisor, SimpleLettaAgentMixin):
+    """Global Supervisor Agent - Top-level orchestrator for ATLAS multi-agent system with Letta persistent memory."""
     
     def __init__(
         self,
@@ -48,18 +49,140 @@ class GlobalSupervisorAgent(BaseSupervisor):
         }
         
         self.completion_threshold = 0.8  # 80% team completion required before final review
+        
+        # Initialize SimpleLetta attributes
+        self._init_simple_letta()
+        
+        # Define Letta tools for team coordination
+        self.supervisor_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "call_research_team",
+                    "description": "Call Research Team Supervisor for information gathering, web search, document analysis, or source verification",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_description": {
+                                "type": "string",
+                                "description": "Detailed description of what the research team should investigate"
+                            },
+                            "priority": {
+                                "type": "string",
+                                "enum": ["low", "medium", "high"],
+                                "default": "medium",
+                                "description": "Priority level for the research task"
+                            },
+                            "context": {
+                                "type": "object",
+                                "description": "Additional context for the research team"
+                            }
+                        },
+                        "required": ["task_description"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "call_analysis_team",
+                    "description": "Call Analysis Team Supervisor for data analysis, strategic planning, or comparison analysis",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_description": {
+                                "type": "string",
+                                "description": "What the analysis team should analyze"
+                            },
+                            "analysis_type": {
+                                "type": "string",
+                                "enum": ["data_analysis", "strategic_planning", "financial_analysis", "swot_analysis", "comparison_analysis"],
+                                "description": "Type of analysis needed"
+                            },
+                            "data_sources": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Data sources or references to analyze"
+                            }
+                        },
+                        "required": ["task_description"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "call_writing_team",
+                    "description": "Call Writing Team Supervisor for content generation, report structuring, or editing",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_description": {
+                                "type": "string",
+                                "description": "What content the writing team should create"
+                            },
+                            "content_type": {
+                                "type": "string",
+                                "enum": ["report", "article", "documentation", "summary", "presentation"],
+                                "description": "Type of content to generate"
+                            },
+                            "tone": {
+                                "type": "string",
+                                "enum": ["formal", "casual", "technical", "executive"],
+                                "default": "formal",
+                                "description": "Desired tone of the content"
+                            }
+                        },
+                        "required": ["task_description"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "call_rating_team",
+                    "description": "Call Rating Team Supervisor for quality assurance, verification, or feedback generation",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_description": {
+                                "type": "string",
+                                "description": "What the rating team should evaluate"
+                            },
+                            "evaluation_criteria": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Specific criteria to evaluate against"
+                            },
+                            "content_to_review": {
+                                "type": "string",
+                                "description": "Reference to the content that needs review"
+                            }
+                        },
+                        "required": ["task_description"]
+                    }
+                }
+            }
+        ]
     
     async def process_task(self, task: Task) -> TaskResult:
-        """Process high-level task by decomposing and orchestrating team coordination."""
+        """Process high-level task using Letta for reasoning and team coordination."""
         await self.update_status(AgentStatus.PROCESSING, f"Processing global task: {task.task_type}")
         
         start_time = time.time()
         
         try:
-            # Use simple run_id for tracking (don't depend on complex MLflow context managers)
+            # Initialize Letta agent with supervisor tools
+            await self.initialize_letta_agent(tools=self.supervisor_tools)
+            
+            # Load any relevant chat history if available
+            if hasattr(self, 'chat_history') and self.chat_history:
+                await self.load_conversation_context(self.chat_history)
+            
+            # Use simple run_id for tracking
             run_id = f"global_supervisor_{task.task_id}"
             
-            # Try to start MLflow run if available (but don't fail if it doesn't work)
+            # Try to start MLflow run if available
             if self.mlflow_tracker and hasattr(self.mlflow_tracker, 'start_agent_run'):
                 try:
                     mlflow_run_context = self.mlflow_tracker.start_agent_run(
@@ -68,7 +191,6 @@ class GlobalSupervisorAgent(BaseSupervisor):
                         task_id=task.task_id,
                         parent_run_id=None
                     )
-                    # Don't use context manager for now - just note that MLflow is available
                     logger.info(f"MLflow tracking available for task {task.task_id}")
                 except Exception as mlflow_error:
                     logger.warning(f"MLflow run start failed (continuing without it): {mlflow_error}")
@@ -85,36 +207,94 @@ class GlobalSupervisorAgent(BaseSupervisor):
                 "run_id": run_id
             }
             
-            # Analyze task and plan decomposition
-            decomposition_plan = await self._analyze_and_decompose_task(task, run_id)
+            # Send task to Letta for intelligent decomposition and coordination
+            letta_prompt = f"""You are the Global Supervisor for the ATLAS multi-agent system. 
             
-            # Coordinate team execution
-            coordination_result = await self._coordinate_team_execution(decomposition_plan, task, run_id)
+New task received:
+Type: {task.task_type}
+Description: {task.description}
+Priority: {task.priority}
+Context: {task.context}
+
+Your responsibilities:
+1. Analyze this task and determine which teams need to be involved
+2. Use your tools (call_research_team, call_analysis_team, call_writing_team, call_rating_team) to coordinate the work
+3. Provide a clear decomposition strategy
+4. Ensure quality and completeness
+
+Start by analyzing the task and explaining your coordination strategy."""
+
+            # Get Letta response with potential tool calls
+            letta_response = await self.send_to_letta(letta_prompt)
             
-            # Monitor and synthesize results
-            final_result = await self._synthesize_global_result(task, coordination_result, run_id)
-            
-            processing_time = time.time() - start_time
-            
-            # Create final task result
-            task_result = TaskResult(
-                task_id=task.task_id,
-                agent_id=self.agent_id,
-                result_type="global_coordination",
-                content=final_result,
-                success=True,
-                processing_time=processing_time,
-                metadata={
-                    "teams_involved": len(decomposition_plan.get("team_assignments", [])),
-                    "coordination_strategy": decomposition_plan.get("strategy", "sequential"),
-                    "quality_threshold_met": True,
-                    "deliverable_types": list(final_result.get("deliverables", {}).keys())
-                },
-                requires_review=False  # Global supervisor results don't need review
-            )
-            
-            await self.update_status(AgentStatus.COMPLETED, f"Global task completed successfully")
-            return task_result
+            # Check if Letta wants to use tools
+            if letta_response["tool_calls"]:
+                # Process tool calls (this will be handled by LangGraph in full implementation)
+                tool_calls = letta_response["tool_calls"]
+                
+                # For now, create a structured response indicating tool calls needed
+                processing_time = time.time() - start_time
+                
+                return TaskResult(
+                    task_id=task.task_id,
+                    agent_id=self.agent_id,
+                    result_type="tool_calls_needed",
+                    content={
+                        "reasoning": letta_response["content"],
+                        "tool_calls": tool_calls,
+                        "next_step": "Execute tool calls through LangGraph workflow"
+                    },
+                    success=True,
+                    processing_time=processing_time,
+                    metadata={
+                        "letta_agent_id": self.letta_agent_id,
+                        "tool_count": len(tool_calls),
+                        "memory_enabled": True
+                    },
+                    requires_review=False
+                )
+            else:
+                # Direct response without tool calls (simple task)
+                final_result = {
+                    "task_summary": {
+                        "original_request": task.description,
+                        "task_type": task.task_type,
+                        "completion_status": "analyzed",
+                        "letta_reasoning": letta_response["content"]
+                    },
+                    "execution_summary": {
+                        "strategy_used": "direct_response",
+                        "tool_calls_made": 0
+                    },
+                    "deliverables": {
+                        "analysis": letta_response["content"],
+                        "next_steps": "No team coordination required for this simple task"
+                    },
+                    "quality_metrics": {
+                        "confidence": 0.9,
+                        "memory_utilized": True
+                    }
+                }
+                
+                processing_time = time.time() - start_time
+                
+                task_result = TaskResult(
+                    task_id=task.task_id,
+                    agent_id=self.agent_id,
+                    result_type="global_coordination",
+                    content=final_result,
+                    success=True,
+                    processing_time=processing_time,
+                    metadata={
+                        "letta_agent_id": self.letta_agent_id,
+                        "direct_response": True,
+                        "memory_enabled": True
+                    },
+                    requires_review=False
+                )
+                
+                await self.update_status(AgentStatus.COMPLETED, f"Global task completed successfully")
+                return task_result
                 
         except Exception as e:
             processing_time = time.time() - start_time
