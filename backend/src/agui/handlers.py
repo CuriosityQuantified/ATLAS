@@ -124,6 +124,17 @@ class AGUIEventBroadcaster:
         self.connection_manager = connection_manager
         self.event_handler = AGUIEventHandler()
     
+    async def broadcast_task_created(self, task_id: str, task_type: str, 
+                                    description: str, priority: str):
+        """Broadcast task created event."""
+        event = AGUIEventFactory.task_created(task_id, task_type, description, priority)
+        await self._broadcast_event(event)
+    
+    async def broadcast_task_started(self, task_id: str, initial_prompt: str, teams_involved: list):
+        """Broadcast task started event."""
+        event = AGUIEventFactory.task_started(task_id, initial_prompt, teams_involved)
+        await self._broadcast_event(event)
+    
     async def broadcast_agent_status(self, task_id: str, agent_id: str, 
                                    old_status: str, new_status: str):
         """Broadcast agent status change."""
@@ -174,6 +185,22 @@ class AGUIEventBroadcaster:
         event = AGUIEventFactory.error_occurred(
             task_id, agent_id, error_type, error_message, traceback
         )
+        await self._broadcast_event(event)
+    
+    async def broadcast_task_completed(self, task_id: str, agent_id: str, result_summary: str):
+        """Broadcast task completion event."""
+        event = AGUIEventFactory.task_completed(task_id, agent_id, result_summary)
+        await self._broadcast_event(event)
+    
+    async def broadcast_task_failed(self, task_id: str, agent_id: str, error_message: str):
+        """Broadcast task failure event."""
+        event = AGUIEventFactory.task_failed(task_id, agent_id, error_message)
+        await self._broadcast_event(event)
+    
+    async def broadcast_user_input_received(self, task_id: str, agent_id: str, 
+                                          input_text: str, context: Dict[str, Any]):
+        """Broadcast user input received event."""
+        event = AGUIEventFactory.user_input_received(task_id, agent_id, input_text, context)
         await self._broadcast_event(event)
     
     async def broadcast_user_approval_required(self, task_id: str, agent_id: str, 

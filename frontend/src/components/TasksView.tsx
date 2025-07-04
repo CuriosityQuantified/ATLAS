@@ -18,9 +18,10 @@ interface Task {
 
 interface TasksViewProps {
   selectedTask: Task | string | null;
+  onTaskCreated?: (task: Task) => void;
 }
 
-export default function TasksView({ selectedTask }: TasksViewProps) {
+export default function TasksView({ selectedTask, onTaskCreated }: TasksViewProps) {
   const [currentTask, setCurrentTask] = useState<Task | null>(null)
   const [isCreatingTask, setIsCreatingTask] = useState(false)
   const [chatMessages, setChatMessages] = useState<any[]>([])
@@ -305,6 +306,11 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
         
         setCurrentTask(newTask)
         setIsCreatingTask(false)
+        
+        // Notify parent component about the new task
+        if (onTaskCreated) {
+          onTaskCreated(newTask)
+        }
         
         // Add initial user message to chat
         setChatMessages([

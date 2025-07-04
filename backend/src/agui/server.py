@@ -209,6 +209,60 @@ class AGUIServer:
             except Exception as e:
                 logger.error(f"Failed to broadcast globally: {e}")
                 return {"status": "error", "message": str(e)}
+        
+        @self.app.websocket("/api/agui/agents/global_supervisor/{task_id}")
+        async def global_supervisor_websocket(websocket: WebSocket, task_id: str):
+            """Dedicated WebSocket endpoint for Global Supervisor agent."""
+            agent_connection_id = f"global_supervisor_{task_id}"
+            await self.connection_manager.connect_websocket(websocket, agent_connection_id)
+            
+            try:
+                # Send agent-specific connection confirmation
+                await websocket.send_text(json.dumps({
+                    "event_type": "agent_connected",
+                    "agent_id": "global_supervisor",
+                    "task_id": task_id,
+                    "data": {
+                        "agent_type": "global_supervisor",
+                        "connected_at": datetime.now().isoformat(),
+                        "dedicated_connection": True
+                    }
+                }))
+                
+                while True:
+                    # Listen for messages from Global Supervisor agent
+                    data = await websocket.receive_text()
+                    
+                    try:
+                        message = json.loads(data)
+                        await self._handle_agent_message(task_id, "global_supervisor", message, websocket)
+                    except json.JSONDecodeError:
+                        await websocket.send_text(json.dumps({
+                            "event_type": "error",
+                            "data": {"message": "Invalid JSON format from agent"}
+                        }))
+                        
+            except WebSocketDisconnect:
+                await self.connection_manager.disconnect_websocket(websocket, agent_connection_id)
+                logger.info(f"Global Supervisor disconnected from task {task_id}")
+            except Exception as e:
+                logger.error(f"WebSocket error for Global Supervisor on task {task_id}: {e}")
+                await self.connection_manager.disconnect_websocket(websocket, agent_connection_id)
+        
+        @self.app.get("/api/agui/agents/global_supervisor/{task_id}/stream")
+        async def global_supervisor_sse(task_id: str):
+            """Dedicated SSE endpoint for Global Supervisor agent."""
+            agent_connection_id = f"global_supervisor_{task_id}"
+            return StreamingResponse(
+                self._agent_sse_generator(agent_connection_id, "global_supervisor", task_id),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                }
+            )
     
     async def _sse_generator(self, task_id: str) -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events for a specific task."""
@@ -315,6 +369,88 @@ class AGUIServer:
         )
         
         await self.connection_manager.broadcast_to_task(task_id, response_event)
+    
+    async def _handle_agent_message(self, task_id: str, agent_id: str, message: dict, websocket: WebSocket):
+        """Handle messages received from agents via WebSocket."""
+        try:
+            message_type = message.get("type", "unknown")
+            
+            if message_type == "status_update":
+                # Agent status update
+                await websocket.send_text(json.dumps({
+                    "event_type": "status_acknowledged",
+                    "agent_id": agent_id,
+                    "task_id": task_id,
+                    "data": {"status": message.get("status"), "timestamp": datetime.now().isoformat()}
+                }))
+            
+            elif message_type == "progress_update":
+                # Agent progress update
+                await websocket.send_text(json.dumps({
+                    "event_type": "progress_acknowledged",
+                    "agent_id": agent_id,
+                    "task_id": task_id,
+                    "data": {"progress": message.get("progress"), "timestamp": datetime.now().isoformat()}
+                }))
+            
+            elif message_type == "dialogue_message":
+                # Agent dialogue message
+                await websocket.send_text(json.dumps({
+                    "event_type": "dialogue_acknowledged", 
+                    "agent_id": agent_id,
+                    "task_id": task_id,
+                    "data": {"message": message.get("content"), "timestamp": datetime.now().isoformat()}
+                }))
+            
+            else:
+                # Echo unknown message types for debugging
+                await websocket.send_text(json.dumps({
+                    "event_type": "agent_message_received",
+                    "agent_id": agent_id,
+                    "task_id": task_id,
+                    "data": {"original_message": message, "status": "unknown_type"}
+                }))
+                
+        except Exception as e:
+            logger.error(f"Error handling agent message from {agent_id}: {e}")
+            await websocket.send_text(json.dumps({
+                "event_type": "error",
+                "data": {"message": f"Failed to process agent message: {str(e)}"}
+            }))
+    
+    async def _agent_sse_generator(self, connection_id: str, agent_id: str, task_id: str) -> AsyncGenerator[str, None]:
+        """Generate Server-Sent Events for a specific agent."""
+        client_queue = self.connection_manager.add_sse_client(connection_id)
+        
+        try:
+            # Send initial agent connection event
+            initial_event = {
+                "event_type": "agent_connection_established",
+                "agent_id": agent_id,
+                "task_id": task_id,
+                "data": {"connected_at": datetime.now().isoformat()}
+            }
+            yield f"data: {json.dumps(initial_event)}\n\n"
+            
+            while True:
+                # Wait for events in the queue
+                try:
+                    event_data = await asyncio.wait_for(client_queue.get(), timeout=30.0)
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                except asyncio.TimeoutError:
+                    # Send keepalive ping
+                    ping_event = {
+                        "event_type": "ping",
+                        "agent_id": agent_id,
+                        "task_id": task_id,
+                        "data": {"timestamp": datetime.now().isoformat()}
+                    }
+                    yield f"data: {json.dumps(ping_event)}\n\n"
+                    
+        except Exception as e:
+            logger.error(f"Agent SSE generator error for {agent_id}: {e}")
+        finally:
+            self.connection_manager.remove_sse_client(connection_id, client_queue)
 
 # Factory function to create and configure AG-UI server
 def create_agui_server() -> FastAPI:

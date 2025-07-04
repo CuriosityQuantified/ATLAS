@@ -16,6 +16,7 @@ interface Task {
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Dashboard')
   const [selectedTask, setSelectedTask] = useState<Task | 'new' | null>(null)
+  const [tasks, setTasks] = useState<Task[]>([])
 
   const handleTaskSelect = (task: Task | 'new') => {
     if (task === 'new') {
@@ -27,10 +28,15 @@ export default function Dashboard() {
     setActiveTab('Tasks')
   }
 
+  const handleTaskCreated = (newTask: Task) => {
+    setTasks(prev => [newTask, ...prev])
+    setSelectedTask(newTask)
+  }
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'Tasks':
-        return <TasksView selectedTask={selectedTask} />
+        return <TasksView selectedTask={selectedTask} onTaskCreated={handleTaskCreated} />
       case 'Dashboard':
         return (
           <div className="flex-1 p-6">
@@ -95,6 +101,7 @@ export default function Dashboard() {
         setActiveTab={setActiveTab}
         onTaskSelect={handleTaskSelect}
         selectedTask={selectedTask}
+        tasks={tasks}
       />
       
       {renderActiveTab()}

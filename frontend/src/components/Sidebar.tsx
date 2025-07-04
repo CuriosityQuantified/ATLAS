@@ -1,14 +1,28 @@
 'use client'
 
+import { useState } from 'react'
+import TaskDropdown from './TaskDropdown'
+
+interface Task {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  status: 'active' | 'completed' | 'failed';
+  agent_type: string;
+}
+
 interface SidebarProps {
   activeTab: string
   setActiveTab: (tab: string) => void
+  onTaskSelect: (task: Task | 'new') => void
+  selectedTask: Task | string | null
+  tasks: Task[]
 }
 
-export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, onTaskSelect, selectedTask, tasks }: SidebarProps) {
   const navItems = [
     'Dashboard',
-    'Tasks', 
     'Agents',
     'Memory',
     'Analytics',
@@ -31,6 +45,15 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="space-y-2">
+          {/* Task Dropdown */}
+          <TaskDropdown 
+            onTaskSelect={onTaskSelect}
+            selectedTask={selectedTask}
+            tasks={tasks}
+            className="mb-2"
+          />
+          
+          {/* Other Navigation Items */}
           {navItems.map((item) => (
             <button
               key={item}

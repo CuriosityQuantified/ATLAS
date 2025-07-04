@@ -3,13 +3,26 @@
 import { useState } from 'react'
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline'
 
-export default function ChatBar() {
+interface ChatBarProps {
+  onSubmit?: (message: string) => void
+  placeholder?: string
+  submitText?: string
+}
+
+export default function ChatBar({ 
+  onSubmit, 
+  placeholder = "Ask a question or provide guidance to the agents...",
+  submitText = "Send"
+}: ChatBarProps) {
   const [message, setMessage] = useState('')
 
   const handleSend = () => {
     if (message.trim()) {
-      console.log('Sending message:', message)
-      // TODO: Implement actual message sending
+      if (onSubmit) {
+        onSubmit(message)
+      } else {
+        console.log('Sending message:', message)
+      }
       setMessage('')
     }
   }
@@ -29,7 +42,7 @@ export default function ChatBar() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask a question or provide guidance to the agents..."
+            placeholder={placeholder}
             className="chat-input w-full px-4 py-3 pr-12 min-h-[48px] max-h-32 resize-none rounded-xl"
             rows={1}
           />

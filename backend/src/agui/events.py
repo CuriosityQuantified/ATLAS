@@ -117,6 +117,20 @@ class AGUIEventFactory:
     """Factory class for creating common AG-UI events."""
     
     @staticmethod
+    def task_created(task_id: str, task_type: str, description: str, priority: str) -> AGUIEvent:
+        """Create a task created event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TASK_CREATED,
+            task_id=task_id,
+            data={
+                "task_type": task_type,
+                "description": description,
+                "priority": priority,
+                "created_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
     def task_started(task_id: str, initial_prompt: str, teams_involved: list) -> AGUIEvent:
         """Create a task started event."""
         return AGUIEvent(
@@ -249,5 +263,46 @@ class AGUIEventFactory:
                 "content": content,
                 "options": options,
                 "requested_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def task_completed(task_id: str, agent_id: str, result_summary: str) -> AGUIEvent:
+        """Create a task completed event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TASK_COMPLETED,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "result_summary": result_summary,
+                "completed_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def task_failed(task_id: str, agent_id: str, error_message: str) -> AGUIEvent:
+        """Create a task failed event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TASK_FAILED,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "error_message": error_message,
+                "failed_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def user_input_received(task_id: str, agent_id: str, input_text: str, 
+                           context: Dict[str, Any]) -> AGUIEvent:
+        """Create a user input received event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.USER_INPUT_RECEIVED,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "input_text": input_text,
+                "context": context,
+                "received_at": datetime.now().isoformat()
             }
         )

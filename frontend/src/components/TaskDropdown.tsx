@@ -15,48 +15,18 @@ interface Task {
 interface TaskDropdownProps {
   onTaskSelect: (task: Task | 'new') => void;
   selectedTask?: Task | string | null;
+  tasks: Task[];
   className?: string;
 }
 
 const TaskDropdown: React.FC<TaskDropdownProps> = ({ 
   onTaskSelect, 
   selectedTask, 
+  tasks,
   className = '' 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Mock task data for development - will be replaced with real data
-  useEffect(() => {
-    const mockTasks: Task[] = [
-      {
-        id: 'task_1',
-        name: 'Research Project Alpha',
-        description: 'Analysis of market trends and competitor research',
-        created_at: '2024-01-15T10:30:00Z',
-        status: 'completed',
-        agent_type: 'global_supervisor'
-      },
-      {
-        id: 'task_2', 
-        name: 'Content Strategy Review',
-        description: 'Review and optimize content distribution strategy',
-        created_at: '2024-01-16T14:20:00Z',
-        status: 'active',
-        agent_type: 'global_supervisor'
-      },
-      {
-        id: 'task_3',
-        name: 'Technical Documentation',
-        description: 'Create comprehensive API documentation',
-        created_at: '2024-01-17T09:15:00Z',
-        status: 'failed',
-        agent_type: 'global_supervisor'
-      }
-    ];
-    setTasks(mockTasks);
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
