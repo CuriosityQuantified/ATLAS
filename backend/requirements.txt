@@ -10,6 +10,7 @@ mlflow[extras]
 # Database & Storage
 boto3
 psycopg2-binary  # PostgreSQL adapter
+asyncpg  # Async PostgreSQL adapter for chat persistence
 redis>=5.0.0     # Redis client with async support
 redis[hiredis]   # High-performance Redis parser
 chromadb>=0.4.0  # Vector database

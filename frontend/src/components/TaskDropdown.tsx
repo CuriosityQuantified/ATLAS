@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDownIcon, PlusIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
+import { chatApi, RecentSession, formatChatTimestamp } from '../lib/chat-api';
 
 interface Task {
   id: string;
@@ -26,6 +27,8 @@ const TaskDropdown: React.FC<TaskDropdownProps> = ({
   className = '' 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [isLoadingRecentSessions, setIsLoadingRecentSessions] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -39,8 +42,44 @@ const TaskDropdown: React.FC<TaskDropdownProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  
+  // Load recent chat sessions
+  const loadRecentSessions = async () => {
+    setIsLoadingRecentSessions(true);
+    try {
+      const sessions = await chatApi.getRecentSessions('default_user', 20);
+      setRecentSessions(sessions);
+    } catch (error) {
+      console.error('Failed to load recent sessions:', error);
+      setRecentSessions([]);
+    } finally {
+      setIsLoadingRecentSessions(false);
+    }
+  };
+  
+  // Load recent sessions when dropdown opens
+  useEffect(() => {
+    if (isOpen) {
+      loadRecentSessions();
+    }
+  }, [isOpen]);
 
   const handleTaskSelect = (task: Task | 'new') => {
+    onTaskSelect(task);
+    setIsOpen(false);
+  };
+  
+  const handleRecentSessionSelect = (session: RecentSession) => {
+    // Convert recent session to Task format
+    const task: Task = {
+      id: session.task_id,
+      name: session.last_message?.content?.slice(0, 50) + '...' || 'Untitled Task',
+      description: session.last_message?.content || '',
+      created_at: session.created_at,
+      status: session.status as 'active' | 'completed' | 'failed',
+      agent_type: 'global_supervisor'
+    };
+    
     onTaskSelect(task);
     setIsOpen(false);
   };
@@ -117,39 +156,45 @@ const TaskDropdown: React.FC<TaskDropdownProps> = ({
           {/* Task History */}
           <div className="py-2">
             <div className="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
-              Recent Tasks
+              Recent Conversations
             </div>
             
-            {tasks.length === 0 ? (
+            {isLoadingRecentSessions ? (
               <div className="px-4 py-6 text-center text-gray-500">
-                No previous tasks found
+                Loading conversations...
+              </div>
+            ) : recentSessions.length === 0 ? (
+              <div className="px-4 py-6 text-center text-gray-500">
+                No previous conversations found
               </div>
             ) : (
-              tasks.map((task) => (
+              recentSessions.map((session) => (
                 <button
-                  key={task.id}
-                  onClick={() => handleTaskSelect(task)}
+                  key={session.id}
+                  onClick={() => handleRecentSessionSelect(session)}
                   className="w-full px-4 py-3 text-left hover:bg-gray-800/50 transition-colors duration-200 
                              border-b border-gray-700/50 last:border-b-0"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm">{getStatusIcon(task.status)}</span>
-                        <span className="font-medium text-white truncate">{task.name}</span>
+                        <span className="text-sm">{getStatusIcon(session.status)}</span>
+                        <span className="font-medium text-white truncate">
+                          {session.last_message?.content?.slice(0, 40) || 'Untitled Task'}
+                        </span>
                       </div>
-                      {task.description && (
-                        <div className="text-sm text-gray-400 mt-1 truncate">
-                          {task.description}
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                        <span>{formatChatTimestamp(session.created_at)}</span>
+                        <span className={`capitalize ${getStatusColor(session.status)}`}>
+                          {session.status}
+                        </span>
+                        <span>{session.message_count} messages</span>
+                      </div>
+                      {session.total_cost_usd > 0 && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          ${session.total_cost_usd.toFixed(4)} • {session.total_tokens} tokens
                         </div>
                       )}
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        <span>{formatDate(task.created_at)}</span>
-                        <span className={`capitalize ${getStatusColor(task.status)}`}>
-                          {task.status}
-                        </span>
-                        <span>Global Supervisor</span>
-                      </div>
                     </div>
                   </div>
                 </button>

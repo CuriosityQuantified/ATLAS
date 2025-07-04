@@ -24,6 +24,8 @@ from ..agents.library import LibraryAgent
 from ..agents.base import Task, TaskResult, AgentStatus
 from ..agui.handlers import AGUIEventBroadcaster
 from ..mlflow.enhanced_tracking import EnhancedATLASTracker
+from ..mlflow.chat_tracking import chat_tracker
+from ..database.chat_manager import chat_manager
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +79,31 @@ async def create_agent_task(
         # Generate unique task ID
         task_id = f"task_{int(time.time())}_{str(uuid.uuid4())[:8]}"
         
-        # Temporarily disable MLflow tracking to test core functionality
-        mlflow_tracker = None
-        logger.info(f"MLflow tracking disabled for testing - task {task_id}")
+        # Initialize enhanced MLflow tracking
+        mlflow_tracker = EnhancedATLASTracker()
+        logger.info(f"MLflow tracking available for task {task_id}")
+        
+        # Create chat session for this task
+        chat_session_id = await chat_manager.get_or_create_session(
+            task_id=task_id,
+            user_id="default_user"
+        )
+        
+        # Create MLflow chat experiment
+        mlflow_run_id = await chat_tracker.create_chat_experiment(
+            session_id=chat_session_id,
+            task_id=task_id,
+            chat_metadata={
+                "task_type": request.task_type,
+                "description": request.description,
+                "priority": request.priority,
+                "context": request.context or {}
+            }
+        )
+        
+        # Update chat session with MLflow run ID
+        if mlflow_run_id:
+            await chat_manager.update_session_mlflow_run(chat_session_id, mlflow_run_id)
         
         # Create task object
         task = Task(
@@ -116,7 +140,8 @@ async def create_agent_task(
             "created_at": datetime.now(),
             "status": "created",
             "mlflow_tracker": mlflow_tracker,
-            "mlflow_run_id": mlflow_tracker.current_run_id if mlflow_tracker else None
+            "mlflow_run_id": mlflow_run_id,
+            "chat_session_id": chat_session_id
         }
         
         # Broadcast task creation
@@ -170,6 +195,16 @@ async def start_agent_task(
         task_data["status"] = "running"
         task_data["started_at"] = datetime.now()
         
+        # Save initial user message to chat history
+        chat_session_id = task_data.get("chat_session_id")
+        if chat_session_id:
+            await chat_manager.save_message(
+                session_id=chat_session_id,
+                message_type="user",
+                content=task.description,
+                metadata={"task_start": True, "task_type": task.task_type}
+            )
+        
         # Broadcast task start
         await broadcaster.broadcast_task_started(
             task_id=task_id,
@@ -178,7 +213,9 @@ async def start_agent_task(
         )
         
         # Start task processing asynchronously
-        asyncio.create_task(_process_task_async(global_supervisor, task, task_id, broadcaster))
+        asyncio.create_task(_process_task_async(
+            global_supervisor, task, task_id, broadcaster, chat_session_id
+        ))
         
         return {
             "task_id": task_id,
@@ -194,19 +231,49 @@ async def _process_task_async(
     global_supervisor: GlobalSupervisorAgent,
     task: Task,
     task_id: str,
-    broadcaster: AGUIEventBroadcaster
+    broadcaster: AGUIEventBroadcaster,
+    chat_session_id: Optional[str] = None
 ):
     """Process task asynchronously with the Global Supervisor."""
     try:
         logger.info(f"Starting async processing for task {task_id}")
         
         # Process the task
+        start_time = time.time()
         result = await global_supervisor.process_task(task)
+        processing_time_ms = int((time.time() - start_time) * 1000)
         
         # Update task status
         active_agents[task_id]["status"] = "completed" if result.success else "failed"
         active_agents[task_id]["completed_at"] = datetime.now()
         active_agents[task_id]["result"] = result
+        
+        # Save agent response to chat history
+        if chat_session_id and result.content:
+            message_id = await chat_manager.save_message(
+                session_id=chat_session_id,
+                message_type="agent",
+                content=str(result.content),
+                agent_id="global_supervisor",
+                metadata={
+                    "task_completion": True,
+                    "success": result.success,
+                    "processing_time_ms": processing_time_ms
+                },
+                processing_time_ms=processing_time_ms,
+                model_used="claude-3-5-haiku-20241022"  # This would come from agent
+            )
+            
+            # Track message in MLflow
+            await chat_tracker.track_message(chat_session_id, {
+                "message_type": "agent",
+                "content": str(result.content),
+                "agent_id": "global_supervisor",
+                "processing_time_ms": processing_time_ms,
+                "tokens_used": 0,  # This would come from the actual LLM call
+                "cost_usd": 0.0,   # This would be calculated
+                "model_used": "claude-3-5-haiku-20241022"
+            })
         
         # Broadcast the actual agent response content
         logger.info(f"Task result - Success: {result.success}, Content length: {len(str(result.content)) if result.content else 0}")

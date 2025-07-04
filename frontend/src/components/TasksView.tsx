@@ -6,6 +6,7 @@ import ChatBar from './ChatBar'
 import QuestionsPanel from './QuestionsPanel'
 import ProjectSelector, { Project } from './ProjectSelector'
 import TaskWebSocketClient from '../lib/websocket-client'
+import { chatApi, ChatMessage, formatChatTimestamp } from '../lib/chat-api'
 
 interface Task {
   id: string;
@@ -25,6 +26,8 @@ export default function TasksView({ selectedTask, onTaskCreated }: TasksViewProp
   const [currentTask, setCurrentTask] = useState<Task | null>(null)
   const [isCreatingTask, setIsCreatingTask] = useState(false)
   const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [persistentChatHistory, setPersistentChatHistory] = useState<ChatMessage[]>([])
+  const [isLoadingChatHistory, setIsLoadingChatHistory] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
   const wsClient = useRef<TaskWebSocketClient | null>(null)
   
@@ -69,6 +72,33 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
     }
   }
   
+  // Load chat history for existing task
+  const loadChatHistory = async (taskId: string) => {
+    setIsLoadingChatHistory(true)
+    try {
+      const chatHistory = await chatApi.getTaskChatHistory(taskId)
+      setPersistentChatHistory(chatHistory)
+      
+      // Convert chat history to display format
+      const formattedMessages = chatHistory.map((msg, index) => ({
+        id: msg.id,
+        type: msg.message_type,
+        content: formatMessageContent(msg.content),
+        timestamp: msg.timestamp,
+        agent_id: msg.agent_id
+      }))
+      
+      setChatMessages(formattedMessages)
+      console.log(`Loaded ${chatHistory.length} messages from chat history`)
+    } catch (error) {
+      console.error('Failed to load chat history:', error)
+      setPersistentChatHistory([])
+      setChatMessages([])
+    } finally {
+      setIsLoadingChatHistory(false)
+    }
+  }
+  
   // Handle task selection
   useEffect(() => {
     if (typeof selectedTask === 'string' && selectedTask.startsWith('new')) {
@@ -85,7 +115,7 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
       setIsCreatingTask(false)
       setCurrentTask(selectedTask)
       // Load chat history for existing task
-      setChatMessages([])
+      loadChatHistory(selectedTask.id)
       // Connect to WebSocket for existing task
       connectToTask(selectedTask.id)
     }

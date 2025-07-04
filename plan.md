@@ -1148,6 +1148,191 @@ Configure backend to communicate with frontend through AG-UI event streaming pro
 ### Step 4: LangGraph & Letta Agent Foundation
 Build core multi-agent orchestration using LangGraph workflows and Letta memory management.
 
-## Next Steps
+## ATLAS Chat Persistence Implementation Plan
 
-The immediate next step is Step 1: Setting up Docker containers for MLflow3 monitoring, PostgreSQL, and the development environment. This provides the observability infrastructure needed to debug and optimize the system from the very beginning.
+### Current Status
+- ✅ Task dropdown functionality implemented
+- ✅ Real-time chat interface with Global Supervisor
+- ✅ WebSocket communication established
+- ✅ Basic MLflow tracking for task creation
+
+### Immediate Implementation Tasks
+
+### 1. Chat History Database Persistence (Priority: Critical)
+
+**Problem**: Chat conversations are lost when users reload the page
+**Solution**: Implement PostgreSQL-based chat storage
+
+#### Database Schema Implementation
+```sql
+-- Chat History Tables (Implement in atlas_main database)
+CREATE TABLE chat_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) DEFAULT 'active',
+    mlflow_run_id VARCHAR(255),
+    user_id VARCHAR(255) DEFAULT 'default_user',
+    UNIQUE(task_id)
+);
+
+CREATE TABLE chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    message_type VARCHAR(50) NOT NULL, -- 'user', 'agent', 'system'
+    content TEXT NOT NULL,
+    agent_id VARCHAR(255),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    tokens_used INTEGER DEFAULT 0,
+    cost_usd DECIMAL(10,6) DEFAULT 0.0
+);
+
+-- Indexes for performance
+CREATE INDEX idx_chat_sessions_task_id ON chat_sessions(task_id);
+CREATE INDEX idx_chat_messages_session_id ON chat_messages(session_id);
+CREATE INDEX idx_chat_messages_timestamp ON chat_messages(timestamp);
+```
+
+#### Backend Implementation
+**Files to Create/Modify:**
+- `backend/src/database/chat_manager.py` - Chat persistence logic
+- `backend/src/api/chat_endpoints.py` - Chat history API endpoints
+- Modify `backend/src/api/agent_endpoints.py` - Integrate chat storage
+
+**Key Functions:**
+- `save_chat_message()` - Store individual messages
+- `load_chat_history()` - Retrieve conversation history
+- `create_chat_session()` - Initialize new chat sessions
+- `update_chat_session()` - Update session metadata
+
+#### Frontend Implementation
+**Files to Modify:**
+- `frontend/src/components/TasksView.tsx` - Load chat history on task selection
+- `frontend/src/components/TaskDropdown.tsx` - Display chat preview
+- `frontend/src/lib/chat-api.ts` - Chat API client functions
+
+**Key Features:**
+- Automatic chat history loading when selecting existing tasks
+- Message persistence on every user/agent interaction
+- Chat preview in task dropdown (last message, timestamp)
+
+### 2. MLflow Chat Tracking Integration (Priority: Critical)
+
+**Problem**: New chats aren't tracked in MLflow with conversation artifacts
+**Solution**: Create comprehensive MLflow chat tracking
+
+#### MLflow Integration Design
+**Files to Create/Modify:**
+- `backend/src/mlflow/chat_tracking.py` - Dedicated chat tracking
+- Modify `backend/src/mlflow/enhanced_tracking.py` - Add chat methods
+- Modify `backend/src/api/agent_endpoints.py` - MLflow chat integration
+
+**Tracking Structure:**
+```python
+# MLflow Chat Tracking Implementation
+class ChatTrackingManager:
+    async def create_chat_experiment(self, task_id: str, chat_metadata: Dict)
+    async def track_message(self, session_id: str, message: Dict)
+    async def store_conversation_artifact(self, session_id: str, conversation: List[Dict])
+    async def update_chat_metrics(self, session_id: str, metrics: Dict)
+```
+
+**Artifacts to Store:**
+- Complete conversation history (JSON format)
+- Message statistics (token counts, response times)
+- Agent performance metrics per chat
+- Cost tracking per conversation
+- Quality assessments for responses
+
+### 3. Implementation Sequence
+
+#### Phase 1: Database Foundation (Week 1)
+1. Create chat tables in atlas_main database
+2. Implement ChatManager class with CRUD operations
+3. Add database connection to existing FastAPI app
+4. Test chat persistence with basic API endpoints
+
+#### Phase 2: MLflow Integration (Week 1)
+1. Extend EnhancedATLASTracker with chat tracking methods
+2. Create MLflow experiments for each chat session
+3. Implement conversation artifact storage
+4. Add real-time metrics tracking for chat interactions
+
+#### Phase 3: Frontend Integration (Week 1)
+1. Modify TasksView to load chat history on task selection
+2. Update chat submission to save messages to database
+3. Add chat history API client functions
+4. Test end-to-end chat persistence flow
+
+#### Phase 4: Testing & Validation (Week 1)
+1. Create comprehensive test suite for chat persistence
+2. Test chat history loading across page reloads
+3. Validate MLflow tracking includes all chat interactions
+4. Performance testing for chat history queries
+
+### 4. Success Criteria
+
+**Database Persistence:**
+- ✅ User can reload page and see complete chat history
+- ✅ All messages (user + agent) are automatically saved
+- ✅ Chat history loads immediately when selecting existing tasks
+- ✅ No data loss during browser sessions
+
+**MLflow Tracking:**
+- ✅ Every new chat creates MLflow experiment
+- ✅ All messages tracked with metadata (tokens, cost, timing)
+- ✅ Conversation artifacts stored and accessible
+- ✅ Continuous tracking when resuming previous chats
+
+**Code Quality:**
+- ✅ Modular, reusable chat components
+- ✅ Clear separation between chat persistence and display logic
+- ✅ Easy to extend for multi-agent chat windows
+- ✅ Comprehensive error handling and logging
+
+### 5. Future Extension Planning
+
+**Multi-Agent Chat Windows (Phase 2):**
+After chat persistence is solid, extend to show multiple agent conversations:
+- Team supervisor chat windows alongside Global Supervisor
+- Individual worker agent interactions
+- Parallel conversation tracking in same interface
+- Scalable WebSocket management for multiple agents
+
+**Architecture Considerations:**
+- Design chat components to be agent-agnostic
+- Create reusable ChatWindow component
+- Implement agent-specific styling and behavior
+- Plan for horizontal scaling of chat interfaces
+
+### Technical Implementation Notes
+
+**Database Design Principles:**
+- Use UUIDs for primary keys (better for distributed systems)
+- JSONB metadata for flexible message attributes
+- Foreign key constraints for data integrity
+- Indexes optimized for chat history queries
+
+**MLflow Organization:**
+- One experiment per chat session (linked to task_id)
+- Nested runs for individual message exchanges
+- Conversation artifacts updated incrementally
+- Metrics tracked: token usage, cost, response time, quality scores
+
+**Frontend State Management:**
+- Local state for current chat messages
+- API calls for chat history persistence
+- Real-time updates via existing WebSocket system
+- Optimistic UI updates with error handling
+
+### Next Development Priorities
+
+1. **Immediate (This Week)**: Implement chat persistence database schema and basic API endpoints
+2. **Week 2**: Complete MLflow chat tracking integration
+3. **Week 3**: Frontend chat history loading and persistence
+4. **Week 4**: Multi-agent chat window foundation
+5. **Month 2**: Advanced chat features (search, export, analytics)
+
+This foundation ensures ATLAS becomes a production-ready conversational AI system with full conversation continuity and comprehensive tracking.

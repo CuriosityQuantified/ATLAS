@@ -16,8 +16,9 @@ from dotenv import load_dotenv
 # Import AG-UI server components
 from src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory, AGUIServer
 
-# Import agent API endpoints
+# Import API endpoints
 from src.api.agent_endpoints import router as agent_router
+from src.api.chat_endpoints import router as chat_router
 
 # Load environment variables
 load_dotenv()
@@ -89,8 +90,9 @@ app.add_middleware(
 # Add lifespan to the existing app
 app.router.lifespan_context = lifespan
 
-# Include agent API router
+# Include API routers
 app.include_router(agent_router, prefix="/api")
+app.include_router(chat_router)
 
 @app.get("/")
 async def root():
