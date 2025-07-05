@@ -297,7 +297,7 @@ class GlobalSupervisorV2(SupervisorAgent):
         start_time = time.time()
         
         try:
-            # First, acknowledge the task to the user
+            # First, acknowledge the task to the user immediately
             await respond_to_user(
                 message=f"I've received your request: {task.description}\n\nLet me analyze this and coordinate the appropriate teams.",
                 message_type="update",

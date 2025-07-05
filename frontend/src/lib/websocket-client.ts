@@ -59,6 +59,15 @@ export class TaskWebSocketClient {
   private handleMessage(message: WebSocketMessage) {
     console.log('Received WebSocket message:', message);
     
+    // Handle nested event types for system messages
+    if (message.event_type === 'system_message' && message.data?.event_type) {
+      const nestedEventType = message.data.event_type;
+      const nestedHandler = this.messageHandlers.get(nestedEventType);
+      if (nestedHandler) {
+        nestedHandler(message);
+      }
+    }
+    
     // Call specific handler for this event type
     const handler = this.messageHandlers.get(message.event_type);
     if (handler) {

@@ -141,12 +141,70 @@ class AGUIEventBroadcaster:
         event = AGUIEventFactory.agent_status_changed(task_id, agent_id, old_status, new_status)
         await self._broadcast_event(event)
     
+    async def broadcast_agent_status_changed(self, task_id: str, agent_id: str, 
+                                          old_status: str, new_status: str):
+        """Broadcast agent status change (alias for consistency)."""
+        await self.broadcast_agent_status(task_id, agent_id, old_status, new_status)
+    
     async def broadcast_dialogue_update(self, task_id: str, agent_id: str, 
                                       message_id: str, direction: str, 
                                       content: Dict[str, Any], sender: str):
         """Broadcast agent dialogue update."""
         event = AGUIEventFactory.agent_dialogue_update(
             task_id, agent_id, message_id, direction, content, sender
+        )
+        await self._broadcast_event(event)
+    
+    async def broadcast_thinking_update(self, task_id: str, agent_id: str,
+                                      status: str, content: str = ""):
+        """Broadcast agent thinking update."""
+        event = AGUIEvent(
+            event_type=AGUIEventType.SYSTEM_MESSAGE,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "event_type": "agent_thinking_update",
+                "thinking_status": status,
+                "thinking_content": content,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+        await self._broadcast_event(event)
+    
+    async def broadcast_content_stream(self, task_id: str, agent_id: str,
+                                     status: str, content: str = "",
+                                     full_content: str = ""):
+        """Broadcast streaming content update."""
+        event = AGUIEvent(
+            event_type=AGUIEventType.SYSTEM_MESSAGE,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "event_type": "agent_content_stream",
+                "stream_status": status,
+                "content": content,
+                "full_content": full_content,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+        await self._broadcast_event(event)
+    
+    async def broadcast_tool_stream_update(self, task_id: str, agent_id: str,
+                                         tool_call_id: str, tool_name: str,
+                                         status: str, arguments: Optional[Dict[str, Any]] = None):
+        """Broadcast tool call streaming update."""
+        event = AGUIEvent(
+            event_type=AGUIEventType.SYSTEM_MESSAGE,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "event_type": "tool_call_stream_update",
+                "tool_call_id": tool_call_id,
+                "tool_name": tool_name,
+                "status": status,
+                "arguments": arguments,
+                "timestamp": datetime.now().isoformat()
+            }
         )
         await self._broadcast_event(event)
     

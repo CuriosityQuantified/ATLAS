@@ -7,6 +7,7 @@ import ChatBar from './ChatBar'
 import QuestionsPanel from './QuestionsPanel'
 import ProjectSelector, { Project } from './ProjectSelector'
 import ToolCallBox from './ToolCallBox'
+import StreamingMessage from './StreamingMessage'
 import TaskWebSocketClient from '../lib/websocket-client'
 import { chatApi, ChatMessage, formatChatTimestamp } from '../lib/chat-api'
 
@@ -53,6 +54,10 @@ export default function TasksView({ selectedTask, onTaskCreated }: TasksViewProp
   const [isAgentTyping, setIsAgentTyping] = useState(false)
   const [typingAgentId, setTypingAgentId] = useState<string | null>(null)
   const [toolCalls, setToolCalls] = useState<Map<string, ToolCall>>(new Map())
+  const [streamingContent, setStreamingContent] = useState<string>('')
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [thinkingContent, setThinkingContent] = useState<string>('')
+  const [isThinking, setIsThinking] = useState(false)
   const wsClient = useRef<TaskWebSocketClient | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   
@@ -180,12 +185,62 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
       
       // Handle agent typing indicators
       wsClient.current.onMessage('agent_status_changed', (message) => {
-        if (message.data?.new_status === 'active' || message.data?.new_status === 'processing') {
+        if (message.data?.new_status === 'typing' || message.data?.new_status === 'active' || message.data?.new_status === 'processing') {
           setIsAgentTyping(true)
           setTypingAgentId(message.agent_id)
         } else if (message.data?.new_status === 'idle' || message.data?.new_status === 'completed') {
           setIsAgentTyping(false)
           setTypingAgentId(null)
+          setIsStreaming(false)
+        }
+      })
+      
+      // Handle thinking updates
+      wsClient.current.onMessage('agent_thinking_update', (message) => {
+        if (message.data?.thinking_status === 'started') {
+          setIsThinking(true)
+          setThinkingContent('')
+        } else if (message.data?.thinking_status === 'chunk') {
+          setThinkingContent(prev => prev + message.data.thinking_content)
+        } else if (message.data?.thinking_status === 'complete') {
+          setIsThinking(false)
+          // Optionally show complete thinking in a collapsed box
+          console.log('Agent thinking:', message.data.thinking_content)
+        }
+      })
+      
+      // Handle streaming content
+      wsClient.current.onMessage('agent_content_stream', (message) => {
+        if (message.data?.stream_status === 'started') {
+          setIsStreaming(true)
+          setStreamingContent('')
+          setIsAgentTyping(true)
+          setTypingAgentId(message.agent_id)
+        } else if (message.data?.stream_status === 'chunk') {
+          setStreamingContent(prev => prev + message.data.content)
+        } else if (message.data?.stream_status === 'complete') {
+          // Add complete message to chat
+          setChatMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'agent',
+            content: message.data.full_content || streamingContent,
+            timestamp: message.timestamp,
+            agent_id: message.agent_id
+          }])
+          setIsStreaming(false)
+          setStreamingContent('')
+          setIsAgentTyping(false)
+        }
+      })
+      
+      // Handle tool streaming updates
+      wsClient.current.onMessage('tool_call_stream_update', (message) => {
+        if (message.data?.status === 'started') {
+          // Show tool being constructed
+          console.log('Tool call starting:', message.data.tool_name)
+        } else if (message.data?.status === 'ready') {
+          // Tool call is ready to execute
+          console.log('Tool call ready:', message.data)
         }
       })
 
@@ -570,7 +625,7 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
     if (!currentTask) return
     
     // Add user message to chat immediately for responsiveness
-    const userMessage = {
+    const userMessage: ExtendedChatMessage = {
       id: Date.now(),
       type: 'user',
       content: message,
@@ -578,6 +633,10 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
     }
     
     setChatMessages(prev => [...prev, userMessage])
+    
+    // Immediately show typing indicator
+    setIsAgentTyping(true)
+    setTypingAgentId('global_supervisor')
     
     try {
       // Send message via new chat endpoint that handles both DB and WebSocket
@@ -599,10 +658,6 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
       if (!response.ok) {
         console.error('Failed to send message:', response.status)
       }
-      
-      // Show typing indicator for agent
-      setIsAgentTyping(true)
-      setTypingAgentId('global_supervisor')
       
       // Also send to task input endpoint for processing
       await fetch(`http://localhost:8000/api/tasks/${currentTask.id}/input`, {
@@ -790,8 +845,33 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
                     )
                   })}
                   
-                  {/* Typing Indicator */}
-                  {isAgentTyping && typingAgentId && (
+                  {/* Thinking Indicator */}
+                  {isThinking && (
+                    <div className="flex justify-start mb-4">
+                      <div className="max-w-lg">
+                        <StreamingMessage
+                          content={thinkingContent}
+                          isThinking={true}
+                          isComplete={false}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Streaming Message */}
+                  {isStreaming && !isThinking && (
+                    <div className="flex justify-start">
+                      <AgentMessageBox 
+                        agentId={typingAgentId || 'global_supervisor'}
+                        content={streamingContent}
+                        timestamp={new Date().toISOString()}
+                        isTyping={false}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Regular Typing Indicator */}
+                  {isAgentTyping && !isStreaming && !isThinking && typingAgentId && (
                     <div className="flex justify-start">
                       <AgentMessageBox 
                         agentId={typingAgentId}
