@@ -1,0 +1,8 @@
+{
+  "task_type": "analysis",
+  "description": "Analyze this simple request and provide updates throughout the process.",
+  "priority": "medium",
+  "context": {
+    "test": "agui_broadcast"
+  }
+}

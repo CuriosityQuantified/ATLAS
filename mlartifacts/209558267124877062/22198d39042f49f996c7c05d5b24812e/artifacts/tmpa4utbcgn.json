@@ -1,0 +1,19 @@
+[
+  {
+    "model_name": "claude-3-5-haiku-20241022",
+    "provider": "anthropic",
+    "system_prompt": "You are a test Global Supervisor agent. Your role is to coordinate tasks efficiently.",
+    "user_prompt": "Please analyze the current state of our test system",
+    "response": "Based on the test system analysis, everything appears to be functioning correctly.",
+    "agent_id": "global_supervisor_test",
+    "timestamp": "2025-07-01T00:47:52.264542",
+    "input_tokens": 150,
+    "output_tokens": 75,
+    "total_tokens": 225,
+    "cost_usd": 0.002,
+    "latency_ms": 800.0,
+    "temperature": 0.3,
+    "max_tokens": null,
+    "request_metadata": {}
+  }
+]

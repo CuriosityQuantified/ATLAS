@@ -1,0 +1,19 @@
+[
+  {
+    "tool_name": "library_search",
+    "tool_type": "library",
+    "input_params": {
+      "query": "test system state",
+      "limit": 5
+    },
+    "output_result": {
+      "results": [],
+      "total_found": 0
+    },
+    "agent_id": "global_supervisor_test",
+    "timestamp": "2025-07-01T00:47:52.225699",
+    "success": true,
+    "processing_time_ms": 150.0,
+    "error_message": null
+  }
+]

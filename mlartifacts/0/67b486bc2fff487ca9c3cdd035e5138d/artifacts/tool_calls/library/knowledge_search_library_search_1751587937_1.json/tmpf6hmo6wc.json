@@ -1,0 +1,40 @@
+{
+  "call_id": "library_search_1751587937_1",
+  "agent_id": "library_agent",
+  "tool_name": "knowledge_search",
+  "tool_type": "library",
+  "input_parameters": {
+    "query": "Q4 strategic planning methodologies",
+    "filters": [
+      "type:methodology",
+      "domain:strategy"
+    ]
+  },
+  "output_result": {
+    "results": [
+      {
+        "title": "OKR-based Strategic Planning",
+        "relevance": 0.92
+      },
+      {
+        "title": "Balanced Scorecard Approach",
+        "relevance": 0.87
+      }
+    ],
+    "count": 2
+  },
+  "timestamp": "2025-07-03T20:12:17.229383",
+  "processing_time_ms": 450.2,
+  "success": true,
+  "error_message": null,
+  "tool_metadata": {
+    "operation_type": "library",
+    "complexity": "standard"
+  },
+  "call_analysis": {
+    "input_size": 100,
+    "output_size": 148,
+    "processing_efficiency": 328.74278098622835,
+    "parameter_count": 2
+  }
+}

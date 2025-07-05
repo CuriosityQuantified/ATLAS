@@ -20,6 +20,7 @@ except ImportError:
     MlflowClient = None
 
 from ..agents.global_supervisor import GlobalSupervisorAgent
+from ..agents.global_supervisor_v2 import GlobalSupervisorV2
 from ..agents.library import LibraryAgent
 from ..agents.base import Task, TaskResult, AgentStatus
 from ..agui.handlers import AGUIEventBroadcaster
@@ -35,6 +36,7 @@ class TaskCreateRequest(BaseModel):
     description: str
     priority: str = "medium"
     context: Optional[Dict[str, Any]] = None
+    use_v2_supervisor: bool = True  # Default to V2 for testing
 
 class TaskStatusResponse(BaseModel):
     task_id: str
@@ -61,8 +63,13 @@ def get_agui_broadcaster(request: Request) -> AGUIEventBroadcaster:
     if broadcaster:
         return broadcaster
     else:
-        # Fallback broadcaster without connection manager
-        return AGUIEventBroadcaster()
+        # Try to get connection manager from the AG-UI server
+        agui_server = getattr(request.app, '_agui_server', None)
+        if agui_server and hasattr(agui_server, 'connection_manager'):
+            return AGUIEventBroadcaster(connection_manager=agui_server.connection_manager)
+        else:
+            # Fallback broadcaster without connection manager
+            return AGUIEventBroadcaster()
 
 # Dependency removed - tracking now integrated into agents directly
 
@@ -115,11 +122,21 @@ async def create_agent_task(
         )
         
         # Initialize Global Supervisor for this task with MLflow tracker
-        global_supervisor = GlobalSupervisorAgent(
-            task_id=task_id,
-            agui_broadcaster=broadcaster,
-            mlflow_tracker=mlflow_tracker
-        )
+        if request.use_v2_supervisor:
+            global_supervisor = GlobalSupervisorV2(
+                task_id=task_id,
+                agui_broadcaster=broadcaster,
+                mlflow_tracker=mlflow_tracker,
+                chat_session_id=chat_session_id
+            )
+            logger.info(f"Using GlobalSupervisorV2 for task {task_id}")
+        else:
+            global_supervisor = GlobalSupervisorAgent(
+                task_id=task_id,
+                agui_broadcaster=broadcaster,
+                mlflow_tracker=mlflow_tracker
+            )
+            logger.info(f"Using GlobalSupervisorAgent (V1) for task {task_id}")
         
         # Initialize Library Agent (shared across tasks)
         library_agent_id = "library_agent_shared"

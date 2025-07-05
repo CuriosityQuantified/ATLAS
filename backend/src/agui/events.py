@@ -54,6 +54,12 @@ class AGUIEventType(Enum):
     PERFORMANCE_METRICS = "performance_metrics"
     COST_UPDATE = "cost_update"
     TOKEN_USAGE_UPDATE = "token_usage_update"
+    
+    # Tool Call Events
+    TOOL_CALL_INITIATED = "tool_call_initiated"
+    TOOL_CALL_EXECUTING = "tool_call_executing"
+    TOOL_CALL_COMPLETED = "tool_call_completed"
+    TOOL_CALL_FAILED = "tool_call_failed"
 
 @dataclass
 class AGUIEvent:
@@ -304,5 +310,69 @@ class AGUIEventFactory:
                 "input_text": input_text,
                 "context": context,
                 "received_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def tool_call_initiated(task_id: str, agent_id: str, tool_call_id: str,
+                           tool_name: str, arguments: Dict[str, Any]) -> AGUIEvent:
+        """Create a tool call initiated event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TOOL_CALL_INITIATED,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "tool_call_id": tool_call_id,
+                "tool_name": tool_name,
+                "arguments": arguments,
+                "initiated_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def tool_call_executing(task_id: str, agent_id: str, tool_call_id: str,
+                           tool_name: str) -> AGUIEvent:
+        """Create a tool call executing event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TOOL_CALL_EXECUTING,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "tool_call_id": tool_call_id,
+                "tool_name": tool_name,
+                "executing_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def tool_call_completed(task_id: str, agent_id: str, tool_call_id: str,
+                           tool_name: str, result: Any, execution_time_ms: float) -> AGUIEvent:
+        """Create a tool call completed event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TOOL_CALL_COMPLETED,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "tool_call_id": tool_call_id,
+                "tool_name": tool_name,
+                "result": result,
+                "execution_time_ms": execution_time_ms,
+                "completed_at": datetime.now().isoformat()
+            }
+        )
+    
+    @staticmethod
+    def tool_call_failed(task_id: str, agent_id: str, tool_call_id: str,
+                        tool_name: str, error_message: str) -> AGUIEvent:
+        """Create a tool call failed event."""
+        return AGUIEvent(
+            event_type=AGUIEventType.TOOL_CALL_FAILED,
+            task_id=task_id,
+            agent_id=agent_id,
+            data={
+                "tool_call_id": tool_call_id,
+                "tool_name": tool_name,
+                "error_message": error_message,
+                "failed_at": datetime.now().isoformat()
             }
         )

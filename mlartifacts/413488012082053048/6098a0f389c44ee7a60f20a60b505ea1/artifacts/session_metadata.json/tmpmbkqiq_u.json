@@ -1,0 +1,6 @@
+{
+  "task_type": "test",
+  "description": "Test V2 supervisor with tool calls",
+  "priority": "medium",
+  "context": {}
+}

@@ -1,0 +1,9 @@
+{
+  "task_type": "research_and_analysis",
+  "description": "Analyze the AI market: research current trends, analyze market size, and write a report",
+  "priority": "high",
+  "context": {
+    "test_mode": true,
+    "frontend_test": true
+  }
+}

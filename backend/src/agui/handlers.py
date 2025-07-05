@@ -211,6 +211,43 @@ class AGUIEventBroadcaster:
         )
         await self._broadcast_event(event)
     
+    async def broadcast_tool_call_initiated(self, task_id: str, agent_id: str,
+                                          tool_call_id: str, tool_name: str, 
+                                          arguments: Dict[str, Any]):
+        """Broadcast tool call initiated event."""
+        logger.info(f"Creating tool_call_initiated event for {tool_name} on task {task_id}")
+        event = AGUIEventFactory.tool_call_initiated(
+            task_id, agent_id, tool_call_id, tool_name, arguments
+        )
+        logger.info(f"Event created: {event.event_type}")
+        await self._broadcast_event(event)
+    
+    async def broadcast_tool_call_executing(self, task_id: str, agent_id: str,
+                                          tool_call_id: str, tool_name: str):
+        """Broadcast tool call executing event."""
+        event = AGUIEventFactory.tool_call_executing(
+            task_id, agent_id, tool_call_id, tool_name
+        )
+        await self._broadcast_event(event)
+    
+    async def broadcast_tool_call_completed(self, task_id: str, agent_id: str,
+                                          tool_call_id: str, tool_name: str,
+                                          result: Any, execution_time_ms: float):
+        """Broadcast tool call completed event."""
+        event = AGUIEventFactory.tool_call_completed(
+            task_id, agent_id, tool_call_id, tool_name, result, execution_time_ms
+        )
+        await self._broadcast_event(event)
+    
+    async def broadcast_tool_call_failed(self, task_id: str, agent_id: str,
+                                       tool_call_id: str, tool_name: str,
+                                       error_message: str):
+        """Broadcast tool call failed event."""
+        event = AGUIEventFactory.tool_call_failed(
+            task_id, agent_id, tool_call_id, tool_name, error_message
+        )
+        await self._broadcast_event(event)
+    
     async def _broadcast_event(self, event: AGUIEvent):
         """Internal method to broadcast an event."""
         # Process the event through handlers
@@ -218,9 +255,10 @@ class AGUIEventBroadcaster:
         
         # Broadcast to connected clients if connection manager is available
         if self.connection_manager:
+            logger.debug(f"Broadcasting event {event.event_type} to task {event.task_id}")
             await self.connection_manager.broadcast_to_task(event.task_id, event)
         else:
-            logger.debug(f"No connection manager available to broadcast event {event.event_id} (standalone mode)")
+            logger.warning(f"No connection manager available to broadcast event {event.event_id} (standalone mode)")
 
 # Convenience functions for easy integration
 

@@ -1,0 +1,11 @@
+{
+  "agent_id": "global_supervisor_test",
+  "content_type": "text",
+  "content_size_bytes": 1024,
+  "processing_time_ms": 50.0,
+  "metadata": {
+    "format": "markdown",
+    "language": "en"
+  },
+  "timestamp": "2025-07-01T00:47:52.323813"
+}

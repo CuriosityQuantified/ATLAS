@@ -38,9 +38,9 @@ async def test_restored_architecture():
             enable_detailed_logging=True
         )
         
-        print(f"✅ Enhanced tracker initialized: {tracker.current_run_id}")
-        print(f"   Experiment: {tracker.experiment_name}")
-        print(f"   MLflow URL: {tracker.get_current_run_url()}")
+        print(f"✅ Enhanced tracker initialized")
+        print(f"   Enhanced tracking enabled: {tracker.enable_detailed_logging}")
+        print(f"   MLflow tracking URI: http://localhost:5002")
         
         # Test 2: Initialize Agents with MLflow Tracker
         print("\n2. Testing Agent Initialization with MLflow Tracker")
@@ -156,7 +156,7 @@ async def test_restored_architecture():
         print("✅ Task Processing: WORKING")
         print("✅ MLflow Dashboard Integration: WORKING")
         
-        print(f"\n🌐 View results at: {tracker.get_current_run_url()}")
+        print(f"\n🌐 View results at: http://localhost:5002")
         print("\n📋 Expected Dashboard Contents:")
         print("   • Agent system prompts (YAML personas)")
         print("   • Agent status transitions with context")

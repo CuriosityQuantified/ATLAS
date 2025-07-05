@@ -12,6 +12,14 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Import centralized LLM logging
+try:
+    from ..utils.llm_logging import LLMCallLogger
+except ImportError:
+    # Fallback if import fails
+    LLMCallLogger = None
+    logger.warning("LLMCallLogger not available, using basic logging")
+
 class SimpleLettaAgentMixin:
     """
     Simplified Letta-style persistent memory for MVP.
@@ -85,6 +93,15 @@ TOOL_CALL: tool_name
 ARGUMENTS: {{"param1": "value1", "param2": "value2"}}
 
 You can make multiple tool calls if needed."""
+        
+        # Log the Letta-enhanced context
+        if LLMCallLogger:
+            LLMCallLogger.log_letta_context(
+                agent_id=self.letta_agent_id,
+                memory_context=memory_context,
+                tool_context=self._build_tool_context(),
+                user_message=message
+            )
 
         # Use CallModel to get LLM response
         if hasattr(self, 'call_model') and self.call_model:
@@ -100,6 +117,10 @@ You can make multiple tool calls if needed."""
                 # Parse response for tool calls
                 content = response.content
                 tool_calls = self._extract_tool_calls(content)
+                
+                # Log tool calls if any were extracted
+                if tool_calls and logger.isEnabledFor(logging.INFO):
+                    logger.info(f"Letta agent {self.letta_agent_id} extracted {len(tool_calls)} tool calls")
                 
                 # Add assistant response to history
                 self.conversation_history.append({
@@ -121,6 +142,8 @@ You can make multiple tool calls if needed."""
                     }
                 }
             else:
+                logger.error(f"Letta agent {self.letta_agent_id} call failed: {response.error}")
+                
                 return {
                     "content": f"Error: {response.error}",
                     "tool_calls": [],

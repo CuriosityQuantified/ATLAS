@@ -1,0 +1,12 @@
+{
+  "agent_id": "global_supervisor",
+  "old_state": "idle",
+  "new_state": "processing",
+  "reason": "Starting dashboard verification test",
+  "context": {
+    "task_id": "dashboard_test_1751410805",
+    "agent_type": "Global Supervisor",
+    "timestamp": "2025-07-01T19:00:05.359584"
+  },
+  "timestamp": "2025-07-01T19:00:05.359592"
+}

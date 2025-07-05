@@ -1,0 +1,25 @@
+{
+  "turn_id": "conv_turn_1751587937_1",
+  "agent_id": "global_supervisor",
+  "turn_type": "user_agent_interaction",
+  "content": "User: What's the current status of our Q4 strategic planning project?\nAgent: The Q4 strategic planning project is currently 45% complete. We have finished market research and are proceeding with competitive analysis. Next steps include stakeholder interviews and strategy formulation.",
+  "timestamp": "2025-07-03T20:12:17.296252",
+  "conversation_context": {
+    "project": "Q4_strategic_planning",
+    "phase": "analysis"
+  },
+  "parent_turn_id": null,
+  "token_count": 38,
+  "turn_analysis": {
+    "content_length": 284,
+    "word_count": 40,
+    "context_keys": [
+      "project",
+      "phase"
+    ],
+    "has_parent": false,
+    "response_time_ms": 2100.5,
+    "turn_number": 1,
+    "user_satisfaction": 0.85
+  }
+}

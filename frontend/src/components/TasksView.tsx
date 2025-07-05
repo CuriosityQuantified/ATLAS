@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import AgentArchitecture from './AgentArchitecture'
+import AgentMessageBox from './AgentMessageBox'
 import ChatBar from './ChatBar'
 import QuestionsPanel from './QuestionsPanel'
 import ProjectSelector, { Project } from './ProjectSelector'
+import ToolCallBox from './ToolCallBox'
 import TaskWebSocketClient from '../lib/websocket-client'
 import { chatApi, ChatMessage, formatChatTimestamp } from '../lib/chat-api'
 
@@ -22,14 +24,37 @@ interface TasksViewProps {
   onTaskCreated?: (task: Task) => void;
 }
 
+interface ToolCall {
+  id: string
+  toolName: string
+  arguments?: any
+  status: 'pending' | 'executing' | 'complete' | 'failed'
+  result?: any
+  executionTime?: number
+  timestamp: string
+}
+
+interface ExtendedChatMessage {
+  id: string | number
+  type: 'user' | 'agent' | 'system' | 'tool_call'
+  content?: string
+  toolCall?: ToolCall
+  timestamp: string
+  agent_id?: string
+}
+
 export default function TasksView({ selectedTask, onTaskCreated }: TasksViewProps) {
   const [currentTask, setCurrentTask] = useState<Task | null>(null)
   const [isCreatingTask, setIsCreatingTask] = useState(false)
-  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatMessages, setChatMessages] = useState<ExtendedChatMessage[]>([])
   const [persistentChatHistory, setPersistentChatHistory] = useState<ChatMessage[]>([])
   const [isLoadingChatHistory, setIsLoadingChatHistory] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
+  const [isAgentTyping, setIsAgentTyping] = useState(false)
+  const [typingAgentId, setTypingAgentId] = useState<string | null>(null)
+  const [toolCalls, setToolCalls] = useState<Map<string, ToolCall>>(new Map())
   const wsClient = useRef<TaskWebSocketClient | null>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
   
   // Helper function to safely format content for display
   const formatMessageContent = (content: any): string => {
@@ -99,12 +124,20 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
     }
   }
   
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+  
   // Handle task selection
   useEffect(() => {
     if (typeof selectedTask === 'string' && selectedTask.startsWith('new')) {
       setIsCreatingTask(true)
       setCurrentTask(null)
       setChatMessages([])
+      setToolCalls(new Map())
+      setIsAgentTyping(false)
+      setTypingAgentId(null)
       // Disconnect any existing WebSocket
       if (wsClient.current) {
         wsClient.current.disconnect()
@@ -114,6 +147,9 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
     } else if (selectedTask && typeof selectedTask === 'object') {
       setIsCreatingTask(false)
       setCurrentTask(selectedTask)
+      setToolCalls(new Map())
+      setIsAgentTyping(false)
+      setTypingAgentId(null)
       // Load chat history for existing task
       loadChatHistory(selectedTask.id)
       // Connect to WebSocket for existing task
@@ -141,6 +177,17 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
           timestamp: message.timestamp
         }])
       })
+      
+      // Handle agent typing indicators
+      wsClient.current.onMessage('agent_status_changed', (message) => {
+        if (message.data?.new_status === 'active' || message.data?.new_status === 'processing') {
+          setIsAgentTyping(true)
+          setTypingAgentId(message.agent_id)
+        } else if (message.data?.new_status === 'idle' || message.data?.new_status === 'completed') {
+          setIsAgentTyping(false)
+          setTypingAgentId(null)
+        }
+      })
 
       wsClient.current.onMessage('status_acknowledged', (message) => {
         console.log('Status update:', message)
@@ -163,19 +210,169 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
 
       wsClient.current.onMessage('agent_dialogue_update', (message) => {
         console.log('Agent dialogue update:', message)
-        if (message.data && message.data.content && message.data.content.data) {
-          setChatMessages(prev => [...prev, {
-            id: Date.now(),
-            type: 'agent',
-            content: formatMessageContent(message.data.content.data),
-            timestamp: message.timestamp,
-            agent_id: message.agent_id
-          }])
+        
+        // Handle both user and agent messages from WebSocket
+        if (message.data && message.data.direction === 'input' && message.data.sender === 'user') {
+          // Skip user messages since we already add them immediately when sent
+          return
         }
+        
+        if (message.data && message.data.content && message.data.content.data) {
+          setChatMessages(prev => {
+            // Check if this message already exists to avoid duplicates
+            const exists = prev.some(msg => 
+              msg.agent_id === message.agent_id && 
+              msg.content === formatMessageContent(message.data.content.data) &&
+              Math.abs(new Date(msg.timestamp).getTime() - new Date(message.timestamp).getTime()) < 1000
+            )
+            
+            if (exists) return prev
+            
+            // Hide typing indicator when agent response arrives
+            setIsAgentTyping(false)
+            setTypingAgentId(null)
+            
+            return [...prev, {
+              id: Date.now(),
+              type: 'agent',
+              content: formatMessageContent(message.data.content.data),
+              timestamp: message.timestamp,
+              agent_id: message.agent_id || 'unknown_agent'
+            }]
+          })
+        }
+      })
+
+      // Tool call event handlers
+      wsClient.current.onMessage('tool_call_initiated', (message) => {
+        console.log('Tool call initiated:', message)
+        const toolCallId = message.data.tool_call_id
+        const toolCall: ToolCall = {
+          id: toolCallId,
+          toolName: message.data.tool_name,
+          arguments: message.data.arguments,
+          status: 'pending',
+          timestamp: message.data.initiated_at || message.timestamp
+        }
+        
+        // Update tool calls map
+        setToolCalls(prev => {
+          const newMap = new Map(prev)
+          newMap.set(toolCallId, toolCall)
+          return newMap
+        })
+        
+        // Add to chat messages
+        setChatMessages(prev => [...prev, {
+          id: `tool_${toolCallId}`,
+          type: 'tool_call',
+          toolCall: toolCall,
+          timestamp: toolCall.timestamp,
+          agent_id: message.agent_id
+        }])
+      })
+
+      wsClient.current.onMessage('tool_call_executing', (message) => {
+        console.log('Tool call executing:', message)
+        const toolCallId = message.data.tool_call_id
+        
+        // Update tool call status
+        setToolCalls(prev => {
+          const newMap = new Map(prev)
+          const toolCall = newMap.get(toolCallId)
+          if (toolCall) {
+            toolCall.status = 'executing'
+            newMap.set(toolCallId, { ...toolCall })
+          }
+          return newMap
+        })
+        
+        // Update existing message
+        setChatMessages(prev => prev.map(msg => {
+          if (msg.type === 'tool_call' && msg.toolCall?.id === toolCallId) {
+            return {
+              ...msg,
+              toolCall: {
+                ...msg.toolCall,
+                status: 'executing'
+              }
+            }
+          }
+          return msg
+        }))
+      })
+
+      wsClient.current.onMessage('tool_call_completed', (message) => {
+        console.log('Tool call completed:', message)
+        const toolCallId = message.data.tool_call_id
+        
+        // Update tool call with result
+        setToolCalls(prev => {
+          const newMap = new Map(prev)
+          const toolCall = newMap.get(toolCallId)
+          if (toolCall) {
+            toolCall.status = 'complete'
+            toolCall.result = message.data.result
+            toolCall.executionTime = message.data.execution_time_ms
+            newMap.set(toolCallId, { ...toolCall })
+          }
+          return newMap
+        })
+        
+        // Update existing message
+        setChatMessages(prev => prev.map(msg => {
+          if (msg.type === 'tool_call' && msg.toolCall?.id === toolCallId) {
+            return {
+              ...msg,
+              toolCall: {
+                ...msg.toolCall,
+                status: 'complete',
+                result: message.data.result,
+                executionTime: message.data.execution_time_ms
+              }
+            }
+          }
+          return msg
+        }))
+      })
+
+      wsClient.current.onMessage('tool_call_failed', (message) => {
+        console.log('Tool call failed:', message)
+        const toolCallId = message.data.tool_call_id
+        
+        // Update tool call status
+        setToolCalls(prev => {
+          const newMap = new Map(prev)
+          const toolCall = newMap.get(toolCallId)
+          if (toolCall) {
+            toolCall.status = 'failed'
+            toolCall.result = { error: message.data.error_message }
+            newMap.set(toolCallId, { ...toolCall })
+          }
+          return newMap
+        })
+        
+        // Update existing message
+        setChatMessages(prev => prev.map(msg => {
+          if (msg.type === 'tool_call' && msg.toolCall?.id === toolCallId) {
+            return {
+              ...msg,
+              toolCall: {
+                ...msg.toolCall,
+                status: 'failed',
+                result: { error: message.data.error_message }
+              }
+            }
+          }
+          return msg
+        }))
       })
 
       wsClient.current.onAnyMessage((message) => {
         console.log('WebSocket message received:', message)
+        if (message.event_type && message.event_type.includes('tool_call')) {
+          console.log('TOOL CALL EVENT:', message)
+        }
       })
 
       await wsClient.current.connect()
@@ -372,9 +569,9 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
   const sendMessage = async (message: string) => {
     if (!currentTask) return
     
-    // Add user message to chat
+    // Add user message to chat immediately for responsiveness
     const userMessage = {
-      id: chatMessages.length + 1,
+      id: Date.now(),
       type: 'user',
       content: message,
       timestamp: new Date().toISOString()
@@ -382,8 +579,32 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
     
     setChatMessages(prev => [...prev, userMessage])
     
-    // Send to backend (placeholder for now)
     try {
+      // Send message via new chat endpoint that handles both DB and WebSocket
+      const response = await fetch(`http://localhost:8000/api/chat/${currentTask.id}/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message_type: 'user',
+          content: message,
+          metadata: {
+            task_id: currentTask.id,
+            user_id: 'default_user'
+          }
+        }),
+      })
+      
+      if (!response.ok) {
+        console.error('Failed to send message:', response.status)
+      }
+      
+      // Show typing indicator for agent
+      setIsAgentTyping(true)
+      setTypingAgentId('global_supervisor')
+      
+      // Also send to task input endpoint for processing
       await fetch(`http://localhost:8000/api/tasks/${currentTask.id}/input`, {
         method: 'POST',
         headers: {
@@ -503,32 +724,86 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
             <div className="bg-card-glass glass-effect rounded-xl border border-border p-6">
               <h3 className="font-semibold text-text mb-4">Conversation with Global Supervisor</h3>
               
-              {chatMessages.length === 0 ? (
+              {isLoadingChatHistory ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="flex space-x-3">
+                        <div className="w-8 h-8 bg-gray-700 rounded-full"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
+                          <div className="h-16 bg-gray-700 rounded"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : chatMessages.length === 0 ? (
                 <div className="text-center text-muted py-8">
                   <p>No messages yet. Start the conversation below.</p>
                 </div>
               ) : (
                 <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {chatMessages.map((message) => (
-                    <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.type === 'user' 
-                          ? 'bg-primary text-white' 
-                          : 'bg-background text-text border border-border'
-                      }`}>
-                        <div className="text-sm whitespace-pre-wrap" 
-                             dangerouslySetInnerHTML={{
-                               __html: message.content
-                                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                 .replace(/\n/g, '<br>')
-                             }}
+                  {chatMessages.map((message) => {
+                    if (message.type === 'tool_call' && message.toolCall) {
+                      return (
+                        <ToolCallBox
+                          key={message.id}
+                          id={message.toolCall.id}
+                          toolName={message.toolCall.toolName}
+                          arguments={message.toolCall.arguments}
+                          status={message.toolCall.status}
+                          result={message.toolCall.result}
+                          executionTime={message.toolCall.executionTime}
+                          timestamp={message.toolCall.timestamp}
                         />
-                        <p className="text-xs opacity-70 mt-1">
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </p>
+                      )
+                    }
+                    
+                    return (
+                      <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        {message.type === 'agent' ? (
+                          <AgentMessageBox 
+                            agentId={message.agent_id || 'unknown'}
+                            content={message.content || ''}
+                            timestamp={message.timestamp}
+                          />
+                        ) : (
+                          <div className={`max-w-xs lg:max-w-md ${
+                            message.type === 'user' 
+                              ? 'bg-primary text-white px-4 py-2 rounded-lg' 
+                              : 'bg-yellow-500/10 text-yellow-400 px-3 py-1 rounded-md text-sm italic'
+                          }`}>
+                            <div className="text-sm whitespace-pre-wrap" 
+                                 dangerouslySetInnerHTML={{
+                                   __html: (message.content || '')
+                                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                     .replace(/\n/g, '<br>')
+                                 }}
+                            />
+                            <p className="text-xs opacity-70 mt-1">
+                              {new Date(message.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        )}
                       </div>
+                    )
+                  })}
+                  
+                  {/* Typing Indicator */}
+                  {isAgentTyping && typingAgentId && (
+                    <div className="flex justify-start">
+                      <AgentMessageBox 
+                        agentId={typingAgentId}
+                        content=""
+                        timestamp={new Date().toISOString()}
+                        isTyping={true}
+                      />
                     </div>
-                  ))}
+                  )}
+                  
+                  {/* Scroll anchor */}
+                  <div ref={chatEndRef} />
                 </div>
               )}
             </div>

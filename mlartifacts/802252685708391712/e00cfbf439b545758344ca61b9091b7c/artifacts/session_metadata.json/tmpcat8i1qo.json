@@ -1,0 +1,6 @@
+{
+  "task_type": "general_analysis",
+  "description": "Test task for chat persistence integration",
+  "priority": "medium",
+  "context": {}
+}

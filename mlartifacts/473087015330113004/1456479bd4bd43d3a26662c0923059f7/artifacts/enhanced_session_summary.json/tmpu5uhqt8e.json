@@ -1,0 +1,31 @@
+{
+  "llm_interactions": {
+    "total_interactions": 0,
+    "successful_interactions": 0,
+    "total_tokens": 0,
+    "total_cost": 0.0,
+    "avg_latency": 0.0,
+    "provider_breakdown": {}
+  },
+  "tool_calls": {
+    "total_calls": 0,
+    "successful_calls": 0,
+    "avg_processing_time": 0.0,
+    "tool_types": []
+  },
+  "conversations": {
+    "total_turns": 0,
+    "conversation_types": [],
+    "agents_in_conversation": []
+  },
+  "cost_breakdown": {
+    "total_cost_usd": 0.0,
+    "anthropic_cost": 0.0,
+    "openai_cost": 0.0,
+    "groq_cost": 0.0,
+    "google_cost": 0.0
+  },
+  "session_metrics": {},
+  "agent_summaries": {},
+  "enhanced_tracking_enabled": true
+}

@@ -1,0 +1,6 @@
+{
+  "task_type": "general_analysis",
+  "description": "what is your name?",
+  "priority": "medium",
+  "context": {}
+}

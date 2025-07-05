@@ -21,8 +21,8 @@ export class TaskWebSocketClient {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        // Connect to the dedicated Global Supervisor WebSocket endpoint
-        const wsUrl = `ws://localhost:8000/api/agui/agents/global_supervisor/${this.taskId}`;
+        // Connect to the task WebSocket endpoint (without agent prefix)
+        const wsUrl = `ws://localhost:8000/api/agui/ws/${this.taskId}`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {

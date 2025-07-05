@@ -1,0 +1,15 @@
+{
+  "session_metrics": {
+    "total_tokens": 225,
+    "total_cost": 0.002,
+    "tool_calls_count": 1,
+    "agent_messages_count": 1,
+    "llm_calls_count": 1
+  },
+  "total_prompts": 3,
+  "total_tool_calls": 1,
+  "total_agent_messages": 1,
+  "total_llm_interactions": 1,
+  "session_duration": 1751345272.347716,
+  "timestamp": "2025-07-01T00:47:52.347717"
+}

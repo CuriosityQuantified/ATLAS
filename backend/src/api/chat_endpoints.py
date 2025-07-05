@@ -228,6 +228,73 @@ async def get_chat_history_by_task(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get task chat history: {str(e)}")
 
+@router.post("/{task_id}/message")
+async def send_chat_message(task_id: str, message_data: ChatMessageCreate):
+    """
+    Send a message and broadcast it immediately via WebSocket
+    This endpoint handles both saving to DB and real-time broadcasting
+    """
+    try:
+        from main import app
+        
+        # Get or create session for this task
+        session_id = await chat_manager.get_or_create_session(
+            task_id=task_id,
+            user_id="default_user"
+        )
+        
+        # Save message to database
+        message_id = await chat_manager.save_message(
+            session_id=session_id,
+            message_type=message_data.message_type,
+            content=message_data.content,
+            agent_id=message_data.agent_id,
+            metadata=message_data.metadata,
+            tokens_used=message_data.tokens_used,
+            cost_usd=message_data.cost_usd,
+            processing_time_ms=message_data.processing_time_ms,
+            model_used=message_data.model_used,
+            response_quality=message_data.response_quality
+        )
+        
+        # Broadcast via AG-UI if available
+        broadcaster = getattr(app.state, 'agui_broadcaster', None)
+        if broadcaster and message_data.message_type == 'user':
+            # Broadcast user message as dialogue update
+            await broadcaster.broadcast_dialogue_update(
+                task_id=task_id,
+                agent_id='user',
+                message_id=message_id,
+                direction='input',
+                content={
+                    'type': 'text',
+                    'data': message_data.content
+                },
+                sender='user'
+            )
+        elif broadcaster and message_data.agent_id:
+            # Broadcast agent message
+            await broadcaster.broadcast_dialogue_update(
+                task_id=task_id,
+                agent_id=message_data.agent_id,
+                message_id=message_id,
+                direction='output',
+                content={
+                    'type': 'text',
+                    'data': message_data.content
+                },
+                sender=message_data.agent_id
+            )
+        
+        return {
+            "message_id": message_id,
+            "status": "success",
+            "broadcast": broadcaster is not None
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+
 @router.get("/recent", response_model=List[RecentSessionResponse])
 async def get_recent_chat_sessions(
     user_id: str = Query("default_user"),

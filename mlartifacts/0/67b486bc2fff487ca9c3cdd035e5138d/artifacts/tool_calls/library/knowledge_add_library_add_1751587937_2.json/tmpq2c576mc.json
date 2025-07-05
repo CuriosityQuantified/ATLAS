@@ -1,0 +1,34 @@
+{
+  "call_id": "library_add_1751587937_2",
+  "agent_id": "library_agent",
+  "tool_name": "knowledge_add",
+  "tool_type": "library",
+  "input_parameters": {
+    "title": "Q4 2024 Market Analysis",
+    "content": "Comprehensive market analysis for Q4 2024 technology sector",
+    "tags": [
+      "analysis",
+      "market",
+      "Q4"
+    ]
+  },
+  "output_result": {
+    "entry_id": "ma_q4_2024_001",
+    "status": "added",
+    "indexed": true
+  },
+  "timestamp": "2025-07-03T20:12:17.253486",
+  "processing_time_ms": 325.7,
+  "success": true,
+  "error_message": null,
+  "tool_metadata": {
+    "operation_type": "library",
+    "complexity": "standard"
+  },
+  "call_analysis": {
+    "input_size": 148,
+    "output_size": 66,
+    "processing_efficiency": 202.6404666871354,
+    "parameter_count": 3
+  }
+}

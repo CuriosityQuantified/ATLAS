@@ -1,0 +1,25 @@
+{
+  "turn_id": "conv_turn_1751587937_2",
+  "agent_id": "library_agent",
+  "turn_type": "user_agent_interaction",
+  "content": "User: Can you find relevant methodologies for strategic planning?\nAgent: I found 15 relevant strategic planning methodologies in our knowledge base, including OKR frameworks, Balanced Scorecard approaches, and SWOT analysis templates. The most applicable ones for your Q4 initiative are highlighted.",
+  "timestamp": "2025-07-03T20:12:17.326901",
+  "conversation_context": {
+    "project": "Q4_strategic_planning",
+    "phase": "analysis"
+  },
+  "parent_turn_id": null,
+  "token_count": 39,
+  "turn_analysis": {
+    "content_length": 299,
+    "word_count": 41,
+    "context_keys": [
+      "project",
+      "phase"
+    ],
+    "has_parent": false,
+    "response_time_ms": 1650.3,
+    "turn_number": 2,
+    "user_satisfaction": 0.85
+  }
+}

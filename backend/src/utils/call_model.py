@@ -14,6 +14,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import json
+from datetime import datetime
+
+# Import centralized LLM logging
+from .llm_logging import LLMCallLogger
+
+logger = logging.getLogger(__name__)
 
 # Import model providers
 try:
@@ -289,6 +296,15 @@ class CallModel:
             start_time = time.time()
             client = self._get_anthropic_client()
             
+            # Log the call start
+            LLMCallLogger.log_call_start(
+                provider="anthropic",
+                model=request.model_name,
+                method="direct",
+                agent_id=self.agent_id,
+                task_id=self.task_id
+            )
+            
             # Build messages
             messages = []
             
@@ -331,6 +347,16 @@ class CallModel:
             if request.stop_sequences:
                 call_params["stop_sequences"] = request.stop_sequences
             
+            # Log the prompt details
+            LLMCallLogger.log_prompt(
+                system_prompt=str(request.system_prompt) if request.system_prompt else None,
+                messages=messages,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+                top_p=request.top_p,
+                stop_sequences=request.stop_sequences
+            )
+            
             # Make API call
             response = client.messages.create(**call_params)
             
@@ -340,6 +366,29 @@ class CallModel:
             content = response.content[0].text if response.content else ""
             input_tokens = response.usage.input_tokens if hasattr(response, 'usage') else 0
             output_tokens = response.usage.output_tokens if hasattr(response, 'usage') else 0
+            
+            # Calculate cost if possible
+            cost_usd = None
+            if input_tokens > 0 and output_tokens > 0:
+                try:
+                    from ..utils.cost_calculator import get_cost_and_pricing_details
+                    cost_usd, _ = get_cost_and_pricing_details(
+                        request.model_name,
+                        input_tokens,
+                        output_tokens
+                    )
+                except Exception as e:
+                    logger.debug(f"Could not calculate cost: {e}")
+            
+            # Log the response
+            LLMCallLogger.log_response(
+                content=content,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+                cost_usd=cost_usd,
+                response_time=processing_time
+            )
             
             return ModelResponse(
                 success=True,
@@ -355,6 +404,14 @@ class CallModel:
             )
             
         except Exception as e:
+            LLMCallLogger.log_error(
+                provider="anthropic",
+                model=request.model_name,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                method="direct"
+            )
+            
             return ModelResponse(
                 success=False,
                 provider="anthropic",
@@ -532,6 +589,11 @@ class CallModel:
             )
             
         except Exception as e:
+            llm_logger.error(f"[LLM CALL ERROR] {datetime.now().isoformat()}")
+            llm_logger.error(f"Provider: OPENAI | Method: DIRECT | Model: {request.model_name}")
+            llm_logger.error(f"Error Type: {type(e).__name__} | Error: {str(e)}")
+            llm_logger.error("="*80)
+            
             return ModelResponse(
                 success=False,
                 provider="openai",
@@ -695,6 +757,11 @@ class CallModel:
             )
             
         except Exception as e:
+            llm_logger.error(f"[LLM CALL ERROR] {datetime.now().isoformat()}")
+            llm_logger.error(f"Provider: GROQ | Method: DIRECT | Model: {request.model_name}")
+            llm_logger.error(f"Error Type: {type(e).__name__} | Error: {str(e)}")
+            llm_logger.error("="*80)
+            
             return ModelResponse(
                 success=False,
                 provider="groq",

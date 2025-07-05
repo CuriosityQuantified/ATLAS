@@ -1,0 +1,61 @@
+{
+  "llm_interactions": {
+    "total_interactions": 1,
+    "successful_interactions": 1,
+    "total_tokens": 241,
+    "total_cost": 0.00234,
+    "avg_latency": 1250.8,
+    "provider_breakdown": {
+      "anthropic": {
+        "total_calls": 1,
+        "total_tokens": 241,
+        "total_cost": 0.00234,
+        "avg_latency": 1250.8,
+        "success_rate": 100.0
+      }
+    }
+  },
+  "tool_calls": {
+    "total_calls": 3,
+    "successful_calls": 3,
+    "avg_processing_time": 318.8,
+    "tool_types": [
+      "library"
+    ]
+  },
+  "conversations": {
+    "total_turns": 2,
+    "conversation_types": [
+      "user_agent_interaction"
+    ],
+    "agents_in_conversation": [
+      "library_agent",
+      "global_supervisor"
+    ]
+  },
+  "cost_breakdown": {
+    "total_cost_usd": 0.00234,
+    "anthropic_cost": 0.00234,
+    "openai_cost": 0.0,
+    "groq_cost": 0.0,
+    "google_cost": 0.0
+  },
+  "session_metrics": {},
+  "agent_summaries": {
+    "library_agent": {
+      "llm_interactions": 0,
+      "tool_calls": 3,
+      "conversation_turns": 1,
+      "total_cost": 0,
+      "total_tokens": 0
+    },
+    "global_supervisor": {
+      "llm_interactions": 1,
+      "tool_calls": 0,
+      "conversation_turns": 1,
+      "total_cost": 0.00234,
+      "total_tokens": 241
+    }
+  },
+  "enhanced_tracking_enabled": true
+}

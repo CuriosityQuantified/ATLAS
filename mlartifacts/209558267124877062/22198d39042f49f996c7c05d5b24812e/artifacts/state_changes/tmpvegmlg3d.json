@@ -1,0 +1,10 @@
+{
+  "agent_id": "global_supervisor_test",
+  "old_state": "idle",
+  "new_state": "processing",
+  "reason": "Started task processing",
+  "context": {
+    "task_id": "test_enhanced_tracking_001"
+  },
+  "timestamp": "2025-07-01T00:47:52.308412"
+}
