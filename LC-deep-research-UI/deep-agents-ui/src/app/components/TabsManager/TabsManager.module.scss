@@ -1,0 +1,183 @@
+@import "../../styles/variables";
+
+.tabsManager {
+  width: 280px;
+  height: 100%;
+  background-color: var(--color-background);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.tabsManagerCollapsed {
+  width: $sidebar-collapsed-width;
+  height: 100%;
+  background-color: var(--color-background);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $spacing-sm 0;
+  flex-shrink: 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-md;
+  height: 60px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.headerActions {
+  display: flex;
+  gap: $spacing-xs;
+  align-items: center;
+}
+
+.createButton {
+  padding: $spacing-xs;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    background-color: var(--color-border-light);
+    color: var(--color-text-primary);
+  }
+}
+
+.toggleButton {
+  padding: $spacing-xs;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    background-color: var(--color-border-light);
+    color: var(--color-text-primary);
+  }
+}
+
+.tabsList {
+  flex: 1;
+  padding: $spacing-sm 0;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl;
+  text-align: center;
+  color: var(--color-text-secondary);
+  gap: $spacing-md;
+
+  p {
+    margin: 0;
+    font-size: $font-size-sm;
+  }
+}
+
+.createFirstButton {
+  font-size: $font-size-xs;
+  padding: $spacing-sm $spacing-md;
+  gap: $spacing-xs;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md;
+  margin: 0 $spacing-sm;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-base;
+  border: 1px solid transparent;
+  min-height: 60px;
+
+  &:hover {
+    background-color: var(--color-border-light);
+  }
+
+  &.active {
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.tabContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.tabTitle {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabMeta {
+  display: flex;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.taskCount,
+.fileCount {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  background-color: var(--color-border-light);
+  padding: 2px $spacing-xs;
+  border-radius: $radius-sm;
+  white-space: nowrap;
+}
+
+.closeButton {
+  padding: $spacing-xs;
+  opacity: 0;
+  transition: opacity $transition-base;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+
+  &.visible {
+    opacity: 1;
+  }
+
+  &:hover {
+    background-color: var(--color-error);
+    color: white;
+  }
+}
+
+.collapsedIndicator {
+  margin-top: $spacing-md;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tabCountBadge {
+  background-color: var(--color-primary);
+  color: white;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  padding: 2px 6px;
+  border-radius: $radius-full;
+  min-width: 20px;
+  text-align: center;
+}
