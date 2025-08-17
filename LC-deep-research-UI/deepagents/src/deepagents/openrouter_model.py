@@ -70,16 +70,22 @@ class ChatOpenRouter(ChatOpenAI):
         api_key: Optional[str] = None,
         max_tokens: Optional[int] = None,
         temperature: float = 0.7,
+        prefer_throughput: bool = True,
+        site_url: Optional[str] = None,
+        site_name: Optional[str] = None,
         **kwargs
     ):
         """
-        Initialize ChatOpenRouter with OpenRouter's API endpoint.
+        Initialize ChatOpenRouter with OpenRouter's API endpoint and throughput optimization.
         
         Args:
-            model_name: The model identifier (e.g., "anthropic/claude-3-sonnet")
+            model_name: The model identifier (e.g., "qwen/qwen3-235b-a22b-thinking-2507")
             api_key: OpenRouter API key (defaults to OPENROUTER_API_KEY env var)
             max_tokens: Maximum tokens for response (defaults to model's limit)
             temperature: Sampling temperature (0-2, default 0.7)
+            prefer_throughput: If True, prioritize providers with highest throughput (default: True)
+            site_url: Optional site URL for OpenRouter rankings
+            site_name: Optional site name for OpenRouter rankings
             **kwargs: Additional arguments passed to ChatOpenAI
         """
         # Get API key from environment if not provided
@@ -100,7 +106,32 @@ class ChatOpenRouter(ChatOpenAI):
         # Ensure max_tokens doesn't exceed model's limit
         max_tokens = min(max_tokens, model_config["max_tokens"])
         
-        # Initialize with OpenRouter's base URL
+        # Prepare extra headers for OpenRouter
+        extra_headers = {}
+        if site_url:
+            extra_headers["HTTP-Referer"] = site_url
+        if site_name:
+            extra_headers["X-Title"] = site_name
+        
+        # Prepare model kwargs for throughput optimization
+        model_kwargs = kwargs.get("model_kwargs", {})
+        
+        # Add provider sorting for highest throughput
+        if prefer_throughput:
+            model_kwargs["extra_body"] = {
+                "provider": {
+                    "sort": "throughput"
+                }
+            }
+        
+        # Add extra headers if any
+        if extra_headers:
+            model_kwargs["extra_headers"] = extra_headers
+        
+        # Update kwargs with enhanced model_kwargs
+        kwargs["model_kwargs"] = model_kwargs
+        
+        # Initialize with OpenRouter's base URL and throughput optimization
         super().__init__(
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
@@ -153,6 +184,34 @@ class ChatOpenRouter(ChatOpenAI):
         """Check if a model supports tool use/function calling."""
         config = cls.MODEL_CONFIGS.get(model_name, {})
         return config.get("tools", False)
+    
+    @classmethod
+    def create_throughput_optimized(
+        cls, 
+        model_name: str = "qwen/qwen3-235b-a22b-thinking-2507",
+        site_url: str = "https://localhost:3000",
+        site_name: str = "ATLAS Deep Agents",
+        **kwargs
+    ) -> "ChatOpenRouter":
+        """
+        Create a ChatOpenRouter instance optimized for highest throughput.
+        
+        Args:
+            model_name: The model to use (default: qwen thinking model)
+            site_url: Site URL for OpenRouter rankings
+            site_name: Site name for OpenRouter rankings
+            **kwargs: Additional arguments passed to ChatOpenRouter
+            
+        Returns:
+            ChatOpenRouter instance configured for maximum throughput
+        """
+        return cls(
+            model_name=model_name,
+            prefer_throughput=True,
+            site_url=site_url,
+            site_name=site_name,
+            **kwargs
+        )
     
     @classmethod
     def get_tool_supporting_model(cls, prefer_thinking: bool = True) -> str:
