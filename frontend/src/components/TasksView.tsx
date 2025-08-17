@@ -187,7 +187,7 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
       wsClient.current.onMessage('agent_status_changed', (message) => {
         if (message.data?.new_status === 'typing' || message.data?.new_status === 'active' || message.data?.new_status === 'processing') {
           setIsAgentTyping(true)
-          setTypingAgentId(message.agent_id)
+          setTypingAgentId(message.agent_id || null)
         } else if (message.data?.new_status === 'idle' || message.data?.new_status === 'completed') {
           setIsAgentTyping(false)
           setTypingAgentId(null)
@@ -274,23 +274,35 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
         
         if (message.data && message.data.content && message.data.content.data) {
           setChatMessages(prev => {
-            // Check if this message already exists to avoid duplicates
+            const newContent = formatMessageContent(message.data.content.data)
+            
+            // More precise duplicate detection - check for exact timestamp matches only
+            // This prevents legitimate responses from being filtered out
             const exists = prev.some(msg => 
               msg.agent_id === message.agent_id && 
-              msg.content === formatMessageContent(message.data.content.data) &&
-              Math.abs(new Date(msg.timestamp).getTime() - new Date(message.timestamp).getTime()) < 1000
+              msg.content === newContent &&
+              msg.timestamp === message.timestamp  // Exact timestamp match only
             )
             
-            if (exists) return prev
+            if (exists) {
+              console.log('Exact duplicate message detected, skipping')
+              return prev
+            }
             
             // Hide typing indicator when agent response arrives
             setIsAgentTyping(false)
             setTypingAgentId(null)
             
+            console.log('Adding agent message to chat:', {
+              agent_id: message.agent_id,
+              content: newContent.substring(0, 100) + '...',
+              timestamp: message.timestamp
+            })
+            
             return [...prev, {
               id: Date.now(),
               type: 'agent',
-              content: formatMessageContent(message.data.content.data),
+              content: newContent,
               timestamp: message.timestamp,
               agent_id: message.agent_id || 'unknown_agent'
             }]
@@ -708,17 +720,17 @@ ${deliverables?.coordination_plan || 'Task coordination completed'}
                     Start a New Task with Global Supervisor
                   </h2>
                   <p className="text-muted">
-                    Describe what you'd like to accomplish. The Global Supervisor will coordinate with specialized teams to complete your task.
+                    Describe what you&apos;d like to accomplish. The Global Supervisor will coordinate with specialized teams to complete your task.
                   </p>
                 </div>
                 
                 <div className="text-left bg-background/50 rounded-lg p-4 mb-6">
                   <h3 className="font-medium text-text mb-2">Example tasks:</h3>
                   <ul className="text-sm text-muted space-y-1">
-                    <li>• "Analyze the competitive landscape for AI productivity tools"</li>
-                    <li>• "Create a market research report on sustainable energy trends"</li>
-                    <li>• "Write a technical specification for a mobile app feature"</li>
-                    <li>• "Research and summarize the latest developments in quantum computing"</li>
+                    <li>• &quot;Analyze the competitive landscape for AI productivity tools&quot;</li>
+                    <li>• &quot;Create a market research report on sustainable energy trends&quot;</li>
+                    <li>• &quot;Write a technical specification for a mobile app feature&quot;</li>
+                    <li>• &quot;Research and summarize the latest developments in quantum computing&quot;</li>
                   </ul>
                 </div>
               </div>

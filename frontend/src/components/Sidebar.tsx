@@ -26,6 +26,7 @@ export default function Sidebar({ activeTab, setActiveTab, onTaskSelect, selecte
     'Agents',
     'Memory',
     'Analytics',
+    'Letta ADE',
     'Settings'
   ]
 

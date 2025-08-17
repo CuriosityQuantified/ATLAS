@@ -19,6 +19,7 @@ from src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory,
 # Import API endpoints
 from src.api.agent_endpoints import router as agent_router
 from src.api.chat_endpoints import router as chat_router
+from src.api.letta_endpoints import router as letta_router
 
 # Load environment variables
 load_dotenv()
@@ -93,6 +94,7 @@ app.router.lifespan_context = lifespan
 # Include API routers
 app.include_router(agent_router, prefix="/api")
 app.include_router(chat_router)
+app.include_router(letta_router)
 
 @app.get("/")
 async def root():
@@ -330,7 +332,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=True if os.getenv("PYTHON_ENV") == "development" else False,
         log_level="info"
     )

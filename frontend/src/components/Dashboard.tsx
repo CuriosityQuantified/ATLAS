@@ -82,6 +82,16 @@ export default function Dashboard() {
             </div>
           </div>
         )
+      case 'Letta ADE':
+        return (
+          <div className="flex-1 h-full">
+            <iframe 
+              src="/letta-ade" 
+              className="w-full h-full border-0"
+              title="Letta Agent Development Environment"
+            />
+          </div>
+        )
       default:
         return (
           <div className="flex-1 p-6">

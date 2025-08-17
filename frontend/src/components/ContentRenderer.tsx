@@ -62,7 +62,7 @@ export default function ContentRenderer({ content, className = '' }: ContentRend
           <div className={`p-3 bg-red-500/10 border border-red-500/20 rounded-lg ${className}`}>
             <div className="text-red-400 text-sm font-medium">Unsupported Content Type</div>
             <div className="text-red-300 text-xs mt-1">
-              Content type "{(content as any).type}" is not supported
+              Content type &quot;{(content as any).type}&quot; is not supported
             </div>
           </div>
         )

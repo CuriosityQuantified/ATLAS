@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "atlas_password"
     
+    # Atlas Agents Database Configuration
+    ATLAS_AGENTS_USER: str = "atlas_agents_user"
+    ATLAS_AGENTS_PASSWORD: str = "atlas_agents_password"
+    
     # Redis Configuration  
     REDIS_URL: str = "redis://localhost:6379"
     

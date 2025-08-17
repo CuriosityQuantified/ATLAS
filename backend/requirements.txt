@@ -23,6 +23,7 @@ anthropic
 openai>=1.0.0
 groq
 google-generativeai  # Google Gemini models
+letta>=0.5.0  # Letta (formerly MemGPT) for persistent agent memory
 
 # Utilities
 python-dotenv

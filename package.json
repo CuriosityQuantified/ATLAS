@@ -34,5 +34,8 @@
   "workspaces": [
     "frontend",
     "mlflow"
-  ]
+  ],
+  "dependencies": {
+    "playwright": "^1.54.2"
+  }
 }
