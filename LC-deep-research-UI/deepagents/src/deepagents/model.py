@@ -16,7 +16,8 @@ def get_default_model():
     max_tokens = int(os.getenv("MAX_TOKENS", "64000"))
     
     # ALWAYS use OpenRouter - no direct Anthropic API
-    model_name = os.getenv("OPENROUTER_MODEL", "qwen3-235b-a22b-thinking-2507")
+    # Trying the qwen model with the format requested by user
+    model_name = os.getenv("OPENROUTER_MODEL", "qwen/qwen3-235b-a22b-thinking-2507")
     print(f"Using OpenRouter with model: {model_name}")
     
     # You can still use Anthropic models through OpenRouter!

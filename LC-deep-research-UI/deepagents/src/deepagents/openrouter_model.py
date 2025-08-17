@@ -23,34 +23,34 @@ class ChatOpenRouter(ChatOpenAI):
     - And many more...
     """
     
-    # Common model configurations with their token limits
+    # Common model configurations with their token limits and tool support
     MODEL_CONFIGS: ClassVar[Dict[str, Dict[str, Any]]] = {
-        # Thinking/Reasoning Models (with dedicated CoT)
-        "claude-opus-4-20250514-thinking-16k": {"max_tokens": 16384, "cost_per_1m": 20.00, "thinking": True},
-        "claude-sonnet-4-20250514-thinking-32k": {"max_tokens": 32768, "cost_per_1m": 8.00, "thinking": True},
-        "claude-3-7-sonnet-20250219-thinking-32k": {"max_tokens": 32768, "cost_per_1m": 6.00, "thinking": True},
-        "qwen3-235b-a22b-thinking-2507": {"max_tokens": 65536, "cost_per_1m": 2.50, "thinking": True},
-        "deepseek-r1-0528": {"max_tokens": 32768, "cost_per_1m": 1.50, "thinking": True},
-        "deepseek-r1": {"max_tokens": 32768, "cost_per_1m": 1.50, "thinking": True},
+        # Thinking/Reasoning Models (with dedicated CoT) - ALL SUPPORT TOOLS
+        "anthropic/claude-opus-4-20250514-thinking-16k": {"max_tokens": 16384, "cost_per_1m": 20.00, "thinking": True, "tools": True},
+        "anthropic/claude-sonnet-4-20250514-thinking-32k": {"max_tokens": 32768, "cost_per_1m": 8.00, "thinking": True, "tools": True},
+        "anthropic/claude-3-7-sonnet-20250219:thinking": {"max_tokens": 32768, "cost_per_1m": 6.00, "thinking": True, "tools": True},
+        "qwen/qwen3-235b-a22b-thinking-2507": {"max_tokens": 65536, "cost_per_1m": 2.50, "thinking": True, "tools": True},
+        "deepseek/deepseek-r1-0528": {"max_tokens": 32768, "cost_per_1m": 1.50, "thinking": True, "tools": True},
+        "deepseek/deepseek-r1": {"max_tokens": 32768, "cost_per_1m": 1.50, "thinking": True, "tools": True},
         
-        # Hybrid Models (optional thinking modes)
-        "claude-opus-4-1-20250805": {"max_tokens": 200000, "cost_per_1m": 15.00, "hybrid": True},
-        "claude-opus-4-20250514": {"max_tokens": 200000, "cost_per_1m": 15.00, "hybrid": True},
-        "gemini-2.5-pro": {"max_tokens": 1000000, "cost_per_1m": 1.25, "hybrid": True},
-        "gemini-2.5-flash": {"max_tokens": 1000000, "cost_per_1m": 0.30, "hybrid": True},
-        "hunyuan-turbos-20250416": {"max_tokens": 128000, "cost_per_1m": 0.80, "hybrid": True},
+        # Hybrid Models (optional thinking modes) - SUPPORT TOOLS EXCEPT HUNYUAN
+        "anthropic/claude-opus-4.1": {"max_tokens": 200000, "cost_per_1m": 15.00, "hybrid": True, "tools": True},
+        "anthropic/claude-opus-4": {"max_tokens": 200000, "cost_per_1m": 15.00, "hybrid": True, "tools": True},
+        "google/gemini-2.5-pro": {"max_tokens": 1000000, "cost_per_1m": 1.25, "hybrid": True, "tools": True},
+        "google/gemini-2.5-flash": {"max_tokens": 1000000, "cost_per_1m": 0.30, "hybrid": True, "tools": True},
+        "hunyuan-turbos-20250416": {"max_tokens": 128000, "cost_per_1m": 0.80, "hybrid": True, "tools": False},  # Not available on OpenRouter
         
-        # Standard Models (no thinking modes)
-        "claude-sonnet-4-20250514": {"max_tokens": 200000, "cost_per_1m": 3.00},
-        "qwen3-235b-a22b-instruct-2507": {"max_tokens": 65536, "cost_per_1m": 1.80},
-        "qwen3-235b-a22b-no-thinking": {"max_tokens": 65536, "cost_per_1m": 1.80},
-        "qwen3-30b-a3b-instruct-2507": {"max_tokens": 32768, "cost_per_1m": 0.35},
-        "qwen3-coder-480b-a35b-instruct": {"max_tokens": 32768, "cost_per_1m": 3.00},
-        "kimi-k2-0711-preview": {"max_tokens": 128000, "cost_per_1m": 0.60},
-        "deepseek-v3-0324": {"max_tokens": 32768, "cost_per_1m": 0.27},
-        "glm-4.5": {"max_tokens": 128000, "cost_per_1m": 0.50},
-        "glm-4.5-air": {"max_tokens": 128000, "cost_per_1m": 0.30},
-        "mistral-medium-2505": {"max_tokens": 128000, "cost_per_1m": 2.70},
+        # Standard Models (no thinking modes) - TOOL SUPPORT VARIES
+        "anthropic/claude-sonnet-4-20250514": {"max_tokens": 200000, "cost_per_1m": 3.00, "tools": True},
+        "qwen/qwen3-235b-a22b-instruct-2507": {"max_tokens": 65536, "cost_per_1m": 1.80, "tools": True},
+        "qwen/qwen3-235b-a22b-no-thinking": {"max_tokens": 65536, "cost_per_1m": 1.80, "tools": True},
+        "qwen/qwen3-30b-a3b-instruct-2507": {"max_tokens": 32768, "cost_per_1m": 0.35, "tools": True},
+        "qwen/qwen3-coder-480b-a35b-instruct": {"max_tokens": 32768, "cost_per_1m": 3.00, "tools": True},
+        "moonshot/kimi-k2-0711-preview": {"max_tokens": 128000, "cost_per_1m": 0.60, "tools": True},
+        "deepseek-v3-0324": {"max_tokens": 32768, "cost_per_1m": 0.27},  # Tool support unclear
+        "glm-4.5": {"max_tokens": 128000, "cost_per_1m": 0.50, "tools": True},
+        "glm-4.5-air": {"max_tokens": 128000, "cost_per_1m": 0.30},  # Tool support unclear
+        "mistral-medium-2505": {"max_tokens": 128000, "cost_per_1m": 2.70},  # Tool support unclear
         
         # Legacy models (keeping for backward compatibility)
         "anthropic/claude-3-opus": {"max_tokens": 200000, "cost_per_1m": 15.00},
@@ -66,7 +66,7 @@ class ChatOpenRouter(ChatOpenAI):
     
     def __init__(
         self,
-        model_name: str = "qwen3-235b-a22b-thinking-2507",
+        model_name: str = "qwen/qwen3-235b-a22b-thinking-2507",
         api_key: Optional[str] = None,
         max_tokens: Optional[int] = None,
         temperature: float = 0.7,
@@ -147,6 +147,45 @@ class ChatOpenRouter(ChatOpenAI):
             key=lambda x: x[1]["max_tokens"]
         )
         return best_model[0]
+    
+    @classmethod
+    def supports_tools(cls, model_name: str) -> bool:
+        """Check if a model supports tool use/function calling."""
+        config = cls.MODEL_CONFIGS.get(model_name, {})
+        return config.get("tools", False)
+    
+    @classmethod
+    def get_tool_supporting_model(cls, prefer_thinking: bool = True) -> str:
+        """
+        Get a model that supports tool use.
+        
+        Args:
+            prefer_thinking: If True, prefer thinking models; otherwise prefer standard models
+            
+        Returns:
+            Model identifier that supports tools
+        """
+        tool_models = [
+            (name, config) 
+            for name, config in cls.MODEL_CONFIGS.items() 
+            if config.get("tools", False)
+        ]
+        
+        if not tool_models:
+            # Fallback to known good model
+            return "anthropic/claude-3-sonnet"
+        
+        if prefer_thinking:
+            # Try to get a thinking model first
+            thinking_models = [m for m in tool_models if m[1].get("thinking", False)]
+            if thinking_models:
+                # Sort by cost (cheapest first)
+                thinking_models.sort(key=lambda x: x[1].get("cost_per_1m", 999))
+                return thinking_models[0][0]
+        
+        # Sort all tool models by cost
+        tool_models.sort(key=lambda x: x[1].get("cost_per_1m", 999))
+        return tool_models[0][0]
 
 
 # Removed create_model_with_fallback function - using OpenRouter exclusively
