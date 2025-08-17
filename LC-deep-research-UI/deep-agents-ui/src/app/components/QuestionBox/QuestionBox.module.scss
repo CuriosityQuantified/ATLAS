@@ -19,6 +19,8 @@
     mask-composite: exclude;
     opacity: 0.5;
     animation: borderGlow 2s ease-in-out infinite;
+    pointer-events: none; // Ensure pseudo-element doesn't block input
+    z-index: 0;
   }
 }
 
@@ -27,6 +29,7 @@
   border-radius: calc($radius-lg - 1px);
   padding: $spacing-md;
   position: relative;
+  z-index: 1; // Ensure content is above pseudo-elements
 }
 
 .questionText {
@@ -64,12 +67,15 @@
   font-family: inherit;
   margin-top: $spacing-sm;
   transition: all 0.2s ease;
+  position: relative;
+  z-index: 2; // Ensure input is above everything
   
   &:focus {
     outline: none;
     border-color: #667eea;
     background-color: var(--color-surface);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    z-index: 3; // Even higher when focused
   }
   
   &:hover {

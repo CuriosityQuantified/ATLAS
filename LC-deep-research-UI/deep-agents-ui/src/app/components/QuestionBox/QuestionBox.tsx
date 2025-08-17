@@ -11,6 +11,11 @@ interface QuestionBoxProps {
 
 export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, onSubmitAnswer }) => {
   const [answer, setAnswer] = useState("");
+  
+  // Debug logging to see what we're receiving
+  console.log('QuestionBox toolCall:', toolCall);
+  console.log('QuestionBox args:', toolCall.args);
+  
   const question = toolCall.args?.question || "";
   const context = toolCall.args?.context;
 
