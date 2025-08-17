@@ -28,16 +28,15 @@ Examples of good usage:
 
 ## `respond_to_user`
 
-Use this tool ONLY for progress updates and status information, NOT for questions. Use this to:
-- Provide progress updates during long-running operations
-- Keep users informed about what you're currently doing
-- Share findings as you discover them
-- You can call this in PARALLEL with other tools
+**CRITICAL LIMITS**: To avoid message spam:
+- Do NOT use this tool more than 2 times consecutively
+- Only use for SIGNIFICANT milestones, not every small step
+- Focus on completing work rather than constant status updates
 
-Examples of good usage:
-- "Starting research on your topic..." [while calling internet_search]
-- "Found relevant information, now analyzing..." [while processing data]
-- "Compiling comprehensive report..." [while calling write_file]
+Use this tool SPARINGLY for:
+- ONE initial acknowledgment of complex tasks
+- Major milestone completion ONLY
+- Direct answers to simple questions
 
 IMPORTANT: Do NOT use respond_to_user to ask questions - use ask_user_question instead.
 

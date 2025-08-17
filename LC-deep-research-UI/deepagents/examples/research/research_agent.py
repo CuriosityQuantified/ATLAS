@@ -111,10 +111,16 @@ Before taking any action, assess the query type:
 
 ## COMMUNICATION RULES
 
-- **Use `respond_to_user`** for:
-  - Progress updates during research
-  - Direct answers to simple questions
-  - Status updates (with "researching", "analyzing", "writing" indicators)
+**CRITICAL**: Avoid excessive status updates to prevent message spam:
+- Do NOT use `respond_to_user` more than 2 times consecutively without user input
+- Only send status updates for SIGNIFICANT milestones (not every small step)
+- Combine multiple updates into one message when possible
+- Focus on doing the work rather than constantly reporting progress
+
+- **Use `respond_to_user`** SPARINGLY for:
+  - Initial acknowledgment of complex tasks (once)
+  - Major milestone completion (e.g., "Report completed")
+  - Direct answers to simple questions (without additional status updates)
 
 - **Use `ask_user_question`** for:
   - Getting clarification on ambiguous requests (ONCE only)
@@ -123,12 +129,11 @@ Before taking any action, assess the query type:
 
 ## RESEARCH WORKFLOW (Only for Complex Topics)
 
-1. `respond_to_user("Starting research on [topic]...", status="researching")`
-2. Write question to `question.txt` 
-3. Use research-agent for deep investigation
-4. `respond_to_user("Analyzing findings...", status="analyzing")`
-5. Write comprehensive report to `final_report.md`
-6. Optionally get critique and revise
+1. Write question to `question.txt` 
+2. Use research-agent for deep investigation
+3. Write comprehensive report to `final_report.md`
+4. Optionally get critique and revise
+5. Send ONE final message with the completed report
 
 Use the research-agent to conduct deep research. It will respond to your questions/topics with a detailed answer.
 

@@ -45,7 +45,9 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
   }) => {
     const [input, setInput] = useState("");
     const [isThreadHistoryOpen, setIsThreadHistoryOpen] = useState(false);
+    const [isNearBottom, setIsNearBottom] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     const { messages, isLoading, sendMessage, stopStream } = useChat(
       threadId,
@@ -54,9 +56,21 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
       onFilesUpdate,
     );
 
+    // Check if user is near bottom of scroll
+    const handleScroll = useCallback(() => {
+      if (messagesContainerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+        const isNear = scrollHeight - scrollTop - clientHeight < 100;
+        setIsNearBottom(isNear);
+      }
+    }, []);
+
+    // Only auto-scroll if user is near bottom
     useEffect(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+      if (isNearBottom && messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, [messages, isNearBottom]);
 
     const handleSubmit = useCallback(
       (e: FormEvent) => {
@@ -219,7 +233,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
             currentThreadId={threadId}
             onThreadSelect={handleThreadSelect}
           />
-          <div className={styles.messagesContainer}>
+          <div className={styles.messagesContainer} ref={messagesContainerRef} onScroll={handleScroll}>
             {!hasMessages && !isLoading && !isLoadingThreadState && (
               <div className={styles.emptyState}>
                 <Bot size={48} className={styles.emptyIcon} />

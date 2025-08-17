@@ -28,7 +28,26 @@ export function useWorkspaces() {
       const storedActiveId = localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
       
       if (storedWorkspaces) {
-        const parsedWorkspaces = JSON.parse(storedWorkspaces);
+        let parsedWorkspaces;
+        try {
+          parsedWorkspaces = JSON.parse(storedWorkspaces);
+        } catch (parseError) {
+          console.error('Failed to parse stored workspaces:', parseError);
+          cleanupCorruptedData();
+          // Create default workspace on parse error
+          const firstWorkspace: Workspace = {
+            id: uuidv4(),
+            title: "Workspace 1",
+            threadId: null,
+            isActive: false,
+            createdAt: new Date(),
+            todos: [],
+            files: {},
+          };
+          setWorkspaces([firstWorkspace]);
+          setActiveWorkspaceId(firstWorkspace.id);
+          return;
+        }
         // Ensure workspaces are valid and properly formatted
         const workspacesWithDates = (Array.isArray(parsedWorkspaces) ? parsedWorkspaces : [])
           .filter((workspace: unknown): workspace is Record<string, unknown> => {
