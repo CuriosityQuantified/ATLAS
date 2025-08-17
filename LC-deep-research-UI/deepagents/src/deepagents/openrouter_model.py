@@ -83,7 +83,7 @@ class ChatOpenRouter(ChatOpenAI):
             api_key: OpenRouter API key (defaults to OPENROUTER_API_KEY env var)
             max_tokens: Maximum tokens for response (defaults to model's limit)
             temperature: Sampling temperature (0-2, default 0.7)
-            prefer_throughput: If True, prioritize providers with highest throughput (default: True)
+            prefer_throughput: If True, prioritize Cerebras → Groq → highest throughput (default: True)
             site_url: Optional site URL for OpenRouter rankings
             site_name: Optional site name for OpenRouter rankings
             **kwargs: Additional arguments passed to ChatOpenAI
@@ -116,11 +116,12 @@ class ChatOpenRouter(ChatOpenAI):
         # Prepare model kwargs for throughput optimization
         model_kwargs = kwargs.get("model_kwargs", {})
         
-        # Add provider sorting for highest throughput
+        # Add provider priority: Cerebras → Groq → highest throughput
         if prefer_throughput:
             model_kwargs["extra_body"] = {
                 "provider": {
-                    "sort": "throughput"
+                    "order": ["Cerebras", "Groq"],  # Try Cerebras first, then Groq
+                    "sort": "throughput"  # Fall back to highest throughput if neither available
                 }
             }
         
@@ -194,7 +195,9 @@ class ChatOpenRouter(ChatOpenAI):
         **kwargs
     ) -> "ChatOpenRouter":
         """
-        Create a ChatOpenRouter instance optimized for highest throughput.
+        Create a ChatOpenRouter instance with prioritized provider routing.
+        
+        Provider priority: Cerebras → Groq → highest throughput fallback
         
         Args:
             model_name: The model to use (default: qwen thinking model)
@@ -203,7 +206,7 @@ class ChatOpenRouter(ChatOpenAI):
             **kwargs: Additional arguments passed to ChatOpenRouter
             
         Returns:
-            ChatOpenRouter instance configured for maximum throughput
+            ChatOpenRouter instance configured for Cerebras/Groq priority + throughput fallback
         """
         return cls(
             model_name=model_name,

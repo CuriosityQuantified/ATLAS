@@ -4,9 +4,9 @@ from deepagents.openrouter_model import ChatOpenRouter
 
 def get_default_model():
     """
-    Get the default model for deep agents with throughput optimization.
+    Get the default model for deep agents with prioritized provider routing.
     
-    ALWAYS uses OpenRouter for all models with highest throughput providers.
+    ALWAYS uses OpenRouter with provider priority: Cerebras → Groq → highest throughput.
     No direct Anthropic API calls - everything goes through OpenRouter.
     
     Environment Variables:
@@ -17,7 +17,7 @@ def get_default_model():
     
     # ALWAYS use OpenRouter with throughput optimization
     model_name = os.getenv("OPENROUTER_MODEL", "qwen/qwen3-235b-a22b-thinking-2507")
-    print(f"Using OpenRouter with model: {model_name} (throughput-optimized)")
+    print(f"Using OpenRouter with model: {model_name} (Cerebras→Groq→throughput priority)")
     
     # Create throughput-optimized model instance
     return ChatOpenRouter.create_throughput_optimized(
@@ -30,14 +30,14 @@ def get_default_model():
 
 def get_model_for_task(task_type: str = "general"):
     """
-    Get an optimized model for a specific task type with throughput optimization.
-    All models are accessed through OpenRouter with highest throughput providers.
+    Get an optimized model for a specific task type with prioritized provider routing.
+    All models are accessed through OpenRouter with provider priority: Cerebras → Groq → highest throughput.
     
     Args:
         task_type: Type of task ("general", "coding", "research", "creative", "cheap", "thinking")
     
     Returns:
-        LangChain chat model optimized for the task (via OpenRouter with throughput optimization)
+        LangChain chat model optimized for the task (via OpenRouter with prioritized providers)
     """
     task_models = {
         "coding": "qwen/qwen3-coder-480b-a35b-instruct",  # Specialized Qwen3 coding model
