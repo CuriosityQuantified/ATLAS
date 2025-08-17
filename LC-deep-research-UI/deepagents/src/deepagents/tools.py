@@ -10,6 +10,7 @@ from deepagents.prompts import (
     TOOL_DESCRIPTION,
 )
 from deepagents.state import Todo, DeepAgentState
+from typing import Optional
 
 
 @tool(description=WRITE_TODOS_DESCRIPTION)
@@ -144,6 +145,47 @@ def edit_file(
             "files": mock_filesystem,
             "messages": [
                 ToolMessage(f"Updated file {file_path}", tool_call_id=tool_call_id)
+            ],
+        }
+    )
+
+
+@tool(description="Send a real-time response to the user while continuing other work. Use this to provide progress updates, status information, and keep users informed during long-running operations. You can call this tool in parallel with other tools to maintain user engagement.")
+def respond_to_user(
+    message: str,
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    status: Optional[str] = None
+) -> Command:
+    """
+    Send an immediate response to the user while continuing other operations.
+    
+    Args:
+        message: The message to send to the user
+        status: Optional status indicator ("thinking", "researching", "analyzing", "writing", "completed")
+    
+    This tool allows agents to:
+    - Provide real-time progress updates
+    - Keep users informed during long operations
+    - Send parallel communications while executing other tools
+    - Reduce perceived latency and improve user experience
+    """
+    # Create a structured response for the frontend
+    response_content = {
+        "type": "user_response",
+        "message": message,
+        "status": status,
+        "timestamp": "now"  # Frontend can handle timestamp formatting
+    }
+    
+    # Format the tool message to include both human-readable and structured data
+    tool_message = f"User Response: {message}"
+    if status:
+        tool_message += f" [Status: {status}]"
+    
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(tool_message, tool_call_id=tool_call_id, additional_kwargs=response_content)
             ],
         }
     )

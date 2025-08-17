@@ -23,9 +23,13 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     const isUser = message.type === "human";
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
-    const hasToolCalls = toolCalls.length > 0;
+    
+    // Separate respond_to_user tool calls from other tool calls
+    const userResponseCalls = toolCalls.filter((toolCall: ToolCall) => toolCall.name === "respond_to_user");
+    const otherToolCalls = toolCalls.filter((toolCall: ToolCall) => toolCall.name !== "respond_to_user");
+    const hasToolCalls = otherToolCalls.length > 0;
     const subAgents = useMemo(() => {
-      return toolCalls
+      return otherToolCalls
         .filter((toolCall: ToolCall) => {
           return (
             toolCall.name === "task" &&
@@ -44,7 +48,7 @@ export const ChatMessage = React.memo<ChatMessageProps>(
             status: toolCall.status,
           };
         });
-    }, [toolCalls]);
+    }, [otherToolCalls]);
 
     const subAgentsString = useMemo(() => {
       return JSON.stringify(subAgents);
@@ -88,9 +92,30 @@ export const ChatMessage = React.memo<ChatMessageProps>(
               )}
             </div>
           )}
+          {/* Display user responses prominently */}
+          {userResponseCalls.length > 0 && (
+            <div className={styles.userResponses}>
+              {userResponseCalls.map((toolCall: ToolCall) => {
+                const responseMessage = toolCall.args?.message || toolCall.result || "";
+                const status = toolCall.args?.status;
+                return (
+                  <div key={toolCall.id} className={styles.userResponse}>
+                    <div className={styles.responseContent}>
+                      {responseMessage}
+                      {status && (
+                        <span className={`${styles.status} ${styles[status]}`}>
+                          {status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {hasToolCalls && (
             <div className={styles.toolCalls}>
-              {toolCalls.map((toolCall: ToolCall) => {
+              {otherToolCalls.map((toolCall: ToolCall) => {
                 if (toolCall.name === "task") return null;
                 return <ToolCallBox key={toolCall.id} toolCall={toolCall} />;
               })}

@@ -28,6 +28,11 @@ def internet_search(
 
 sub_research_prompt = """You are a dedicated researcher. Your job is to conduct research based on the users questions.
 
+IMPORTANT: Use `respond_to_user` to provide progress updates while researching. Examples:
+- "Starting research on [topic]..." when beginning
+- "Found [X] relevant sources, analyzing..." during research  
+- "Compiling findings..." when finishing
+
 Conduct thorough research and then reply to the user with a detailed answer to their question
 
 only your FINAL answer will be passed on to the user. They will have NO knowledge of anything except your final message, so your final report should be your final message!"""
@@ -40,6 +45,11 @@ research_sub_agent = {
 }
 
 sub_critique_prompt = """You are a dedicated editor. You are being tasked to critique a report.
+
+IMPORTANT: Use `respond_to_user` to provide progress updates while reviewing. Examples:
+- "Reading the report and analyzing structure..." when starting
+- "Checking accuracy against sources..." during fact-checking
+- "Compiling detailed critique..." when finishing
 
 You can find the report at `final_report.md`.
 
@@ -71,7 +81,24 @@ critique_sub_agent = {
 # Prompt prefix to steer the agent to be an expert researcher
 research_instructions = """You are an expert researcher. Your job is to conduct thorough research, and then write a polished report.
 
-The first thing you should do is to write the original user question to `question.txt` so you have a record of it.
+CRITICAL: Use the `respond_to_user` tool frequently to keep the user informed of your progress. You can call this tool in parallel with other operations to provide real-time updates.
+
+The first thing you should do is:
+1. Use `respond_to_user` to tell the user you're starting the research
+2. Write the original user question to `question.txt` so you have a record of it
+
+Communication Strategy:
+- Always use `respond_to_user` when starting a new phase of work
+- Provide progress updates during long research operations
+- Let users know when you're transitioning between tasks
+- Use status indicators: "researching", "analyzing", "writing", "reviewing"
+
+Example workflow:
+1. `respond_to_user("Starting comprehensive research on your topic...", status="researching")`
+2. Save question and begin research with sub-agents
+3. `respond_to_user("Found valuable sources, now analyzing findings...", status="analyzing")`
+4. `respond_to_user("Compiling research into comprehensive report...", status="writing")`
+5. Write report and potentially get critique
 
 Use the research-agent to conduct deep research. It will respond to your questions/topics with a detailed answer.
 
