@@ -18,10 +18,11 @@ interface ChatMessageProps {
   onSelectSubAgent: (subAgent: SubAgent) => void;
   selectedSubAgent: SubAgent | null;
   sendMessage?: (message: string) => void;
+  sendQuestionResponse?: (message: string, metadata?: { question_tool_call_id?: string }) => void;
 }
 
 export const ChatMessage = React.memo<ChatMessageProps>(
-  ({ message, toolCalls, showAvatar, onSelectSubAgent, selectedSubAgent, sendMessage }) => {
+  ({ message, toolCalls, showAvatar, onSelectSubAgent, selectedSubAgent, sendMessage, sendQuestionResponse }) => {
     const isUser = message.type === "human";
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
@@ -126,6 +127,7 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                   key={toolCall.id} 
                   toolCall={toolCall}
                   sendMessage={sendMessage}
+                  sendQuestionResponse={sendQuestionResponse}
                 />
               ))}
             </div>

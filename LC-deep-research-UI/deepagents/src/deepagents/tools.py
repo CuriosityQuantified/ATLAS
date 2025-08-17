@@ -15,7 +15,9 @@ from typing import Optional
 
 @tool(description=WRITE_TODOS_DESCRIPTION)
 def write_todos(
-    todos: list[Todo], tool_call_id: Annotated[str, InjectedToolCallId]
+    todos: list[Todo], 
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    state: Annotated[DeepAgentState, InjectedState]
 ) -> Command:
     return Command(
         update={
@@ -23,6 +25,9 @@ def write_todos(
             "messages": [
                 ToolMessage(f"Updated todo list to {todos}", tool_call_id=tool_call_id)
             ],
+            # Reset consecutive respond_to_user counter since we're using a different tool
+            "consecutive_respond_calls": 0,
+            "last_tool_used": "write_todos"
         }
     )
 
@@ -154,6 +159,7 @@ def edit_file(
 def respond_to_user(
     message: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
+    state: Annotated[DeepAgentState, InjectedState],
     status: Optional[str] = None
 ) -> Command:
     """
@@ -169,6 +175,32 @@ def respond_to_user(
     - Send parallel communications while executing other tools
     - Reduce perceived latency and improve user experience
     """
+    # Get current usage tracking from state
+    consecutive_calls = state.get("consecutive_respond_calls", 0)
+    last_tool = state.get("last_tool_used", "")
+    
+    # HARD LIMIT ENFORCEMENT: Block if already called 2 times consecutively
+    if last_tool == "respond_to_user" and consecutive_calls >= 2:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "ERROR: respond_to_user limit exceeded (max 2 consecutive calls). "
+                        "Use other tools before calling respond_to_user again.",
+                        tool_call_id=tool_call_id
+                    )
+                ],
+                # Reset the counter since we're blocking
+                "consecutive_respond_calls": 0,
+                "last_tool_used": "respond_to_user_blocked"
+            }
+        )
+    
+    # Update usage tracking
+    new_consecutive = consecutive_calls + 1 if last_tool == "respond_to_user" else 1
+    tool_usage = state.get("tool_usage", {})
+    tool_usage["respond_to_user"] = tool_usage.get("respond_to_user", 0) + 1
+    
     # Create a structured response for the frontend
     response_content = {
         "type": "user_response",
@@ -187,6 +219,9 @@ def respond_to_user(
             "messages": [
                 ToolMessage(tool_message, tool_call_id=tool_call_id, additional_kwargs=response_content)
             ],
+            "tool_usage": tool_usage,
+            "consecutive_respond_calls": new_consecutive,
+            "last_tool_used": "respond_to_user"
         }
     )
 
@@ -195,6 +230,7 @@ def respond_to_user(
 def ask_user_question(
     question: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
+    state: Annotated[DeepAgentState, InjectedState],
     context: Optional[str] = None
 ) -> Command:
     """
@@ -229,5 +265,8 @@ def ask_user_question(
             "messages": [
                 ToolMessage(tool_message, tool_call_id=tool_call_id, additional_kwargs=question_content)
             ],
+            # Reset consecutive respond_to_user counter since we're using a different tool
+            "consecutive_respond_calls": 0,
+            "last_tool_used": "ask_user_question"
         }
     )

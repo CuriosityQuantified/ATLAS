@@ -156,7 +156,10 @@ export function useWorkspaces() {
         
         if (jsonString) {
           localStorage.setItem(WORKSPACES_STORAGE_KEY, jsonString);
-          console.log('Workspaces saved successfully:', sanitizedWorkspaces.map(w => ({ id: w.id, title: w.title })));
+          // Only log basic info to avoid logging complex objects
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Workspaces saved:', sanitizedWorkspaces.length, 'workspaces');
+          }
         } else {
           console.error('Failed to stringify workspaces - safeStringify returned null');
           

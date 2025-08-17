@@ -92,10 +92,40 @@ export function useChat(
     stream.stop();
   }, [stream]);
 
+  const sendQuestionResponse = useCallback(
+    (message: string, metadata?: { question_tool_call_id?: string }) => {
+      const humanMessage: Message = {
+        id: uuidv4(),
+        type: "human",
+        content: message,
+        additional_kwargs: {
+          is_question_response: true,
+          ...metadata,
+        },
+      };
+      stream.submit(
+        { messages: [humanMessage] },
+        {
+          optimisticValues(prev) {
+            const prevMessages = prev.messages ?? [];
+            // Don't add to optimistic messages if it's a question response
+            // Let the server handle adding it properly
+            return prev;
+          },
+          config: {
+            recursion_limit: 100,
+          },
+        },
+      );
+    },
+    [stream],
+  );
+
   return {
     messages: stream.messages,
     isLoading: stream.isLoading,
     sendMessage,
+    sendQuestionResponse,
     stopStream,
   };
 }

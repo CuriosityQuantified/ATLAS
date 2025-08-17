@@ -10,7 +10,7 @@ import React, {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot, LoaderCircle, SquarePen, History, X } from "lucide-react";
+import { Send, Bot, LoaderCircle, SquarePen, History, X, ArrowDown } from "lucide-react";
 import { ChatMessage } from "../ChatMessage/ChatMessage";
 import { ThreadHistorySidebar } from "../ThreadHistorySidebar/ThreadHistorySidebar";
 import type { SubAgent, TodoItem, ToolCall } from "../../types/types";
@@ -46,31 +46,43 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
     const [input, setInput] = useState("");
     const [isThreadHistoryOpen, setIsThreadHistoryOpen] = useState(false);
     const [isNearBottom, setIsNearBottom] = useState(true);
+    const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+    const [lastScrollTop, setLastScrollTop] = useState(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const messagesListRef = useRef<HTMLDivElement>(null);
 
-    const { messages, isLoading, sendMessage, stopStream } = useChat(
+    const { messages, isLoading, sendMessage, sendQuestionResponse, stopStream } = useChat(
       threadId,
       setThreadId,
       onTodosUpdate,
       onFilesUpdate,
     );
 
-    // Check if user is near bottom of scroll
+    // Check if user is near bottom of scroll and track user intent
     const handleScroll = useCallback(() => {
-      if (messagesContainerRef.current) {
-        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-        const isNear = scrollHeight - scrollTop - clientHeight < 100;
+      if (messagesListRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesListRef.current;
+        const threshold = 100;
+        const isNear = scrollHeight - scrollTop - clientHeight < threshold;
+        
+        // Detect manual upward scrolling
+        if (scrollTop < lastScrollTop && !isNear) {
+          setUserHasScrolledUp(true);
+        } else if (isNear) {
+          setUserHasScrolledUp(false);
+        }
+        
         setIsNearBottom(isNear);
+        setLastScrollTop(scrollTop);
       }
-    }, []);
+    }, [lastScrollTop]);
 
-    // Only auto-scroll if user is near bottom
+    // Only auto-scroll if user is near bottom and hasn't manually scrolled up
     useEffect(() => {
-      if (isNearBottom && messagesEndRef.current) {
+      if (isNearBottom && !userHasScrolledUp && messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
       }
-    }, [messages, isNearBottom]);
+    }, [messages, isLoading, isNearBottom, userHasScrolledUp]);
 
     const handleSubmit = useCallback(
       (e: FormEvent) => {
@@ -111,9 +123,19 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
     1. Loop through all messages
     2. For each AI message, add the AI message, and any tool calls to the messageMap
     3. For each tool message, find the corresponding tool call in the messageMap and update the status and output
+    4. Filter out question response messages (they should only appear in QuestionBox)
     */
       const messageMap = new Map<string, any>();
-      messages.forEach((message: Message) => {
+      // Filter out question response messages before processing
+      const visibleMessages = messages.filter((message: Message) => {
+        // Skip messages that are question responses
+        if (message.type === "human" && message.additional_kwargs?.is_question_response) {
+          return false;
+        }
+        return true;
+      });
+      
+      visibleMessages.forEach((message: Message) => {
         if (message.type === "ai") {
           const toolCallsInMessage: any[] = [];
           if (
@@ -233,7 +255,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
             currentThreadId={threadId}
             onThreadSelect={handleThreadSelect}
           />
-          <div className={styles.messagesContainer} ref={messagesContainerRef} onScroll={handleScroll}>
+          <div className={styles.messagesContainer}>
             {!hasMessages && !isLoading && !isLoadingThreadState && (
               <div className={styles.emptyState}>
                 <Bot size={48} className={styles.emptyIcon} />
@@ -245,7 +267,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
                 <LoaderCircle className={styles.threadLoadingSpinner} />
               </div>
             )}
-            <div className={styles.messagesList}>
+            <div className={styles.messagesList} ref={messagesListRef} onScroll={handleScroll}>
               {processedMessages.map((data) => (
                 <ChatMessage
                   key={data.message.id}
@@ -255,6 +277,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
                   onSelectSubAgent={onSelectSubAgent}
                   selectedSubAgent={selectedSubAgent}
                   sendMessage={sendMessage}
+                  sendQuestionResponse={sendQuestionResponse}
                 />
               ))}
               {isLoading && (
@@ -265,6 +288,19 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
               )}
               <div ref={messagesEndRef} />
             </div>
+            {userHasScrolledUp && (
+              <button
+                className={styles.scrollToBottomButton}
+                onClick={() => {
+                  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                  setUserHasScrolledUp(false);
+                }}
+                type="button"
+              >
+                <ArrowDown size={16} />
+                New messages
+              </button>
+            )}
           </div>
         </div>
         <form onSubmit={handleSubmit} className={styles.inputForm}>

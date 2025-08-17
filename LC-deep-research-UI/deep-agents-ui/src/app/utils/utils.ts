@@ -22,6 +22,23 @@ export function safeStringify(obj: any, space?: string | number): string | null 
   
   try {
     return JSON.stringify(obj, function(key, value) {
+      // Debug logging for problematic objects (only in development)
+      if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+        const className = value.constructor?.name || '';
+        const objString = Object.prototype.toString.call(value);
+        
+        // Check for nuqs, LangGraph, and other problematic objects
+        if (className.includes('Client') ||
+            className.includes('LangGraph') ||
+            className.includes('URLSearchParams') ||
+            className.includes('ReadonlyURLSearchParams') ||
+            objString.includes('URLSearchParams') ||
+            objString.includes('[object URLSearchParams]')) {
+          console.debug(`[safeStringify] Filtering non-serializable: ${className || objString} at key: ${key}`);
+          return undefined;
+        }
+      }
+      
       // Skip Next.js async params and searchParams objects
       // These are Promises in Next.js 15+ and should not be serialized
       if (key === 'params' || key === 'searchParams') {
@@ -72,12 +89,14 @@ export function safeStringify(obj: any, space?: string | number): string | null 
         };
       }
       
-      // Additional check for Next.js internal objects
+      // Additional check for Next.js internal objects and third-party libraries
       if (value && typeof value === 'object' && value.constructor) {
         const className = value.constructor.name;
-        // Skip Next.js internal classes that might cause issues
+        // Skip Next.js internal classes and third-party objects that might cause issues
         if (className.includes('NextRequest') || className.includes('NextResponse') || 
-            className.includes('ReadonlyURLSearchParams') || className.includes('Promise')) {
+            className.includes('ReadonlyURLSearchParams') || className.includes('Promise') ||
+            className.includes('Client') || className.includes('LangGraph') ||
+            className.includes('URLSearchParams')) {
           return undefined;
         }
       }
@@ -138,11 +157,16 @@ export function createSerializableClone<T>(obj: T, visited: WeakSet<any> = new W
     return obj.map(item => createSerializableClone(item, visited)) as any;
   }
   
-  // Skip Next.js internal objects and Promises
+  // Skip Next.js internal objects, Promises, and third-party library objects
   if (obj && typeof obj === 'object' && obj.constructor) {
     const className = obj.constructor.name;
+    const objString = Object.prototype.toString.call(obj);
+    
     if (className === 'Promise' || className.includes('NextRequest') || 
-        className.includes('NextResponse') || className.includes('ReadonlyURLSearchParams')) {
+        className.includes('NextResponse') || className.includes('ReadonlyURLSearchParams') ||
+        className.includes('Client') || className.includes('LangGraph') ||
+        className.includes('URLSearchParams') || objString.includes('URLSearchParams')) {
+      console.debug(`[createSerializableClone] Skipping non-serializable: ${className}`);
       return null as any;
     }
   }

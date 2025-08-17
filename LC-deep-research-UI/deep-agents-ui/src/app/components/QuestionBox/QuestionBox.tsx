@@ -8,9 +8,10 @@ import styles from "./QuestionBox.module.scss";
 interface QuestionBoxProps {
   toolCall: ToolCall;
   sendMessage?: (message: string) => void;
+  sendQuestionResponse?: (message: string, metadata?: { question_tool_call_id?: string }) => void;
 }
 
-export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage }) => {
+export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage, sendQuestionResponse }) => {
   const [answer, setAnswer] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -36,10 +37,16 @@ export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage 
 
   const handleSubmitAnswer = () => {
     const trimmedAnswer = answer.trim();
-    if (trimmedAnswer && sendMessage) {
+    if (trimmedAnswer) {
       console.log(`Submitting answer for question "${question}": ${trimmedAnswer}`);
-      // Send the answer as a regular message
-      sendMessage(trimmedAnswer);
+      // Use sendQuestionResponse if available, otherwise fall back to sendMessage
+      if (sendQuestionResponse) {
+        // Send as question response with metadata
+        sendQuestionResponse(trimmedAnswer, { question_tool_call_id: toolCall.id });
+      } else if (sendMessage) {
+        // Fallback to regular message
+        sendMessage(trimmedAnswer);
+      }
       setSubmittedAnswer(trimmedAnswer);
       setIsAnswered(true);
       setAnswer("");

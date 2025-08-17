@@ -23,3 +23,7 @@ def file_reducer(l, r):
 class DeepAgentState(AgentState):
     todos: NotRequired[list[Todo]]
     files: Annotated[NotRequired[dict[str, str]], file_reducer]
+    # Tool usage tracking for enforcement
+    tool_usage: NotRequired[dict[str, int]]
+    consecutive_respond_calls: NotRequired[int]
+    last_tool_used: NotRequired[str]
