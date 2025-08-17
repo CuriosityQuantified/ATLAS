@@ -17,10 +17,11 @@ interface ChatMessageProps {
   showAvatar: boolean;
   onSelectSubAgent: (subAgent: SubAgent) => void;
   selectedSubAgent: SubAgent | null;
+  sendMessage?: (message: string) => void;
 }
 
 export const ChatMessage = React.memo<ChatMessageProps>(
-  ({ message, toolCalls, showAvatar, onSelectSubAgent, selectedSubAgent }) => {
+  ({ message, toolCalls, showAvatar, onSelectSubAgent, selectedSubAgent, sendMessage }) => {
     const isUser = message.type === "human";
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
@@ -124,10 +125,7 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                 <QuestionBox 
                   key={toolCall.id} 
                   toolCall={toolCall}
-                  onSubmitAnswer={(toolCallId, answer) => {
-                    // TODO: Connect to backend to submit answer
-                    console.log(`Submitting answer for ${toolCallId}: ${answer}`);
-                  }}
+                  sendMessage={sendMessage}
                 />
               ))}
             </div>

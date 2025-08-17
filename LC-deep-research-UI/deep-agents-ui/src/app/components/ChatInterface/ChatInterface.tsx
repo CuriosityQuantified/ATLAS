@@ -240,6 +240,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
                   showAvatar={data.showAvatar}
                   onSelectSubAgent={onSelectSubAgent}
                   selectedSubAgent={selectedSubAgent}
+                  sendMessage={sendMessage}
                 />
               ))}
               {isLoading && (

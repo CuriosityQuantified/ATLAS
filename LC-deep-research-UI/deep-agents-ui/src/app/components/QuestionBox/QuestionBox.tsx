@@ -1,53 +1,102 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { ChevronDown, ChevronUp, Send } from "lucide-react";
 import type { ToolCall } from "../../types/types";
 import styles from "./QuestionBox.module.scss";
 
 interface QuestionBoxProps {
   toolCall: ToolCall;
-  onSubmitAnswer?: (toolCallId: string, answer: string) => void;
+  sendMessage?: (message: string) => void;
 }
 
-export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, onSubmitAnswer }) => {
+export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage }) => {
   const [answer, setAnswer] = useState("");
-  
-  // Debug logging to see what we're receiving
-  console.log('QuestionBox toolCall:', toolCall);
-  console.log('QuestionBox args:', toolCall.args);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const question = toolCall.args?.question || "";
   const context = toolCall.args?.context;
 
-  const handleSubmitAnswer = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && answer.trim()) {
-      // TODO: Submit answer back to the agent
-      console.log(`Answering question ${toolCall.id}: ${answer}`);
-      if (onSubmitAnswer) {
-        onSubmitAnswer(toolCall.id, answer);
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      if (isExpanded) {
+        textareaRef.current.style.height = `${Math.min(scrollHeight, 300)}px`;
+      } else {
+        textareaRef.current.style.height = `${Math.min(scrollHeight, 60)}px`;
       }
-      // This would need to be connected to the backend
+    }
+  }, [answer, isExpanded]);
+
+  const handleSubmitAnswer = () => {
+    const trimmedAnswer = answer.trim();
+    if (trimmedAnswer && sendMessage) {
+      console.log(`Submitting answer for question "${question}": ${trimmedAnswer}`);
+      // Send the answer as a regular message
+      sendMessage(trimmedAnswer);
       setAnswer("");
+      setIsExpanded(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Submit on Enter (without Shift)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmitAnswer();
+    }
+  };
+
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+    // Focus textarea when expanding
+    if (!isExpanded && textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
 
   return (
     <div className={styles.questionBox}>
       <div className={styles.questionContent}>
-        <div className={styles.questionText}>{question}</div>
+        <div className={styles.questionHeader}>
+          <div className={styles.questionText}>{question}</div>
+          <button
+            type="button"
+            className={styles.expandButton}
+            onClick={toggleExpanded}
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
         {context && (
           <div className={styles.questionContext}>{context}</div>
         )}
+        <div className={styles.inputWrapper}>
+          <textarea
+            ref={textareaRef}
+            className={`${styles.questionInput} ${isExpanded ? styles.expanded : ''}`}
+            placeholder="Type your answer (Enter to send, Shift+Enter for new line)..."
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            rows={isExpanded ? 5 : 1}
+          />
+          <button
+            type="button"
+            className={styles.sendButton}
+            onClick={handleSubmitAnswer}
+            disabled={!answer.trim()}
+            title="Send answer"
+          >
+            <Send size={16} />
+          </button>
+        </div>
       </div>
-      <input
-        type="text"
-        className={styles.questionInput}
-        placeholder="Type your answer and press Enter..."
-        value={answer}
-        onChange={(e) => setAnswer(e.target.value)}
-        onKeyPress={handleSubmitAnswer}
-        autoFocus
-      />
     </div>
   );
 };
