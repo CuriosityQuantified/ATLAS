@@ -150,7 +150,7 @@ def edit_file(
     )
 
 
-@tool(description="Send a real-time response to the user while continuing other work. Use this to provide progress updates, status information, and keep users informed during long-running operations. You can call this tool in parallel with other tools to maintain user engagement.")
+@tool(description="Send a real-time response to the user while continuing other work. Use this ONLY for progress updates and status information, NOT for questions. If you need user input, use ask_user_question instead.")
 def respond_to_user(
     message: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -177,8 +177,8 @@ def respond_to_user(
         "timestamp": "now"  # Frontend can handle timestamp formatting
     }
     
-    # Format the tool message to include both human-readable and structured data
-    tool_message = f"User Response: {message}"
+    # Format the tool message without "User Response:" prefix
+    tool_message = message
     if status:
         tool_message += f" [Status: {status}]"
     
@@ -186,6 +186,48 @@ def respond_to_user(
         update={
             "messages": [
                 ToolMessage(tool_message, tool_call_id=tool_call_id, additional_kwargs=response_content)
+            ],
+        }
+    )
+
+
+@tool(description="Ask the user a clarifying question and wait for their response. Use this when you need additional information to provide better results. The execution will pause until the user responds.")
+def ask_user_question(
+    question: str,
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    context: Optional[str] = None
+) -> Command:
+    """
+    Ask the user a question and wait for their response.
+    
+    Args:
+        question: The question to ask the user
+        context: Optional context about why you're asking this question
+    
+    This tool:
+    - Pauses execution until user responds
+    - Shows an input field in the UI for the user to type their answer
+    - Should be used sparingly and only when truly needed
+    - Should NOT be used repeatedly for the same clarification
+    """
+    # Create a structured response that signals the frontend to show an input field
+    question_content = {
+        "type": "user_question",
+        "question": question,
+        "context": context,
+        "needs_response": True,
+        "timestamp": "now"
+    }
+    
+    # Format the tool message
+    tool_message = f"Question: {question}"
+    if context:
+        tool_message += f" (Context: {context})"
+    
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(tool_message, tool_call_id=tool_call_id, additional_kwargs=question_content)
             ],
         }
     )

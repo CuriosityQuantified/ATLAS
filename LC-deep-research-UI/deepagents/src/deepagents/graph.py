@@ -1,6 +1,6 @@
 from deepagents.sub_agent import _create_task_tool, SubAgent
 from deepagents.model import get_default_model
-from deepagents.tools import write_todos, write_file, read_file, ls, edit_file, respond_to_user
+from deepagents.tools import write_todos, write_file, read_file, ls, edit_file, respond_to_user, ask_user_question
 from deepagents.state import DeepAgentState
 from typing import Sequence, Union, Callable, Any, TypeVar, Type, Optional
 from langchain_core.tools import BaseTool
@@ -13,18 +13,33 @@ StateSchemaType = Type[StateSchema]
 
 base_prompt = """You have access to a number of standard tools
 
+## `ask_user_question`
+
+Use this tool when you need clarification or additional information from the user. This will:
+- Pause execution and wait for the user's response
+- Show an input field in the UI for the user to respond
+- Should be used SPARINGLY - only when truly needed for quality output
+- NEVER use repeatedly for the same clarification - ask once and wait
+
+Examples of good usage:
+- "Which specific aspect of [topic] would you like me to focus on?"
+- "Could you clarify what you mean by [ambiguous term]?"
+- "Would you prefer a technical or general audience perspective?"
+
 ## `respond_to_user`
 
-You have access to the `respond_to_user` tool to communicate with users in real-time while performing other operations. Use this tool FREQUENTLY to:
+Use this tool ONLY for progress updates and status information, NOT for questions. Use this to:
 - Provide progress updates during long-running operations
 - Keep users informed about what you're currently doing
-- Reduce perceived latency by showing immediate feedback
-- You can call this tool in PARALLEL with other tools to maintain engagement while working
+- Share findings as you discover them
+- You can call this in PARALLEL with other tools
 
 Examples of good usage:
 - "Starting research on your topic..." [while calling internet_search]
 - "Found relevant information, now analyzing..." [while processing data]
-- "Writing comprehensive report..." [while calling write_file]
+- "Compiling comprehensive report..." [while calling write_file]
+
+IMPORTANT: Do NOT use respond_to_user to ask questions - use ask_user_question instead.
 
 ## `write_todos`
 
@@ -63,7 +78,8 @@ def create_deep_agent(
         state_schema: The schema of the deep agent. Should subclass from DeepAgentState
     """
     prompt = instructions + base_prompt
-    built_in_tools = [write_todos, write_file, read_file, ls, edit_file, respond_to_user]
+    # Main agent gets both respond_to_user and ask_user_question
+    built_in_tools = [write_todos, write_file, read_file, ls, edit_file, respond_to_user, ask_user_question]
     if model is None:
         model = get_default_model()
     state_schema = state_schema or DeepAgentState

@@ -5,6 +5,7 @@ import { User, Bot } from "lucide-react";
 import { SubAgentIndicator } from "../SubAgentIndicator/SubAgentIndicator";
 import { ToolCallBox } from "../ToolCallBox/ToolCallBox";
 import { MarkdownContent } from "../MarkdownContent/MarkdownContent";
+import { QuestionBox } from "../QuestionBox/QuestionBox";
 import type { SubAgent, ToolCall } from "../../types/types";
 import styles from "./ChatMessage.module.scss";
 import { Message } from "@langchain/langgraph-sdk";
@@ -24,9 +25,12 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
     
-    // Separate respond_to_user tool calls from other tool calls
+    // Separate different types of tool calls
     const userResponseCalls = toolCalls.filter((toolCall: ToolCall) => toolCall.name === "respond_to_user");
-    const otherToolCalls = toolCalls.filter((toolCall: ToolCall) => toolCall.name !== "respond_to_user");
+    const askQuestionCalls = toolCalls.filter((toolCall: ToolCall) => toolCall.name === "ask_user_question");
+    const otherToolCalls = toolCalls.filter((toolCall: ToolCall) => 
+      toolCall.name !== "respond_to_user" && toolCall.name !== "ask_user_question"
+    );
     const hasToolCalls = otherToolCalls.length > 0;
     const subAgents = useMemo(() => {
       return otherToolCalls
@@ -111,6 +115,21 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                   </div>
                 );
               })}
+            </div>
+          )}
+          {/* Display questions that need user input */}
+          {askQuestionCalls.length > 0 && (
+            <div className={styles.questionBoxes}>
+              {askQuestionCalls.map((toolCall: ToolCall) => (
+                <QuestionBox 
+                  key={toolCall.id} 
+                  toolCall={toolCall}
+                  onSubmitAnswer={(toolCallId, answer) => {
+                    // TODO: Connect to backend to submit answer
+                    console.log(`Submitting answer for ${toolCallId}: ${answer}`);
+                  }}
+                />
+              ))}
             </div>
           )}
           {hasToolCalls && (

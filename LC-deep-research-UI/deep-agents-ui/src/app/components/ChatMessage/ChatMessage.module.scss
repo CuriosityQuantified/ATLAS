@@ -173,6 +173,16 @@
   }
 }
 
+// Container for question boxes
+.questionBoxes {
+  margin-top: $spacing-sm;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  width: 100%;
+  max-width: 100%;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

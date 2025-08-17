@@ -1,0 +1,110 @@
+@use "../../styles/variables" as *;
+
+.questionBox {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: $radius-lg;
+  padding: 1px;
+  width: 100%;
+  animation: questionPulse 2s ease-in-out infinite;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: $radius-lg;
+    padding: 1px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0.5;
+    animation: borderGlow 2s ease-in-out infinite;
+  }
+}
+
+.questionContent {
+  background-color: var(--color-surface);
+  border-radius: calc($radius-lg - 1px);
+  padding: $spacing-md;
+  position: relative;
+}
+
+.questionText {
+  font-size: $font-size-sm;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: $spacing-xs;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  
+  &::before {
+    content: '❓';
+    font-size: 18px;
+    animation: bounce 1s ease-in-out infinite;
+  }
+}
+
+.questionContext {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  margin-bottom: $spacing-sm;
+  padding-left: 26px; // Align with question text after emoji
+  font-style: italic;
+}
+
+.questionInput {
+  width: 100%;
+  padding: $spacing-sm $spacing-md;
+  border: 2px solid var(--color-primary);
+  border-radius: $radius-md;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-size: $font-size-sm;
+  font-family: inherit;
+  margin-top: $spacing-sm;
+  transition: all 0.2s ease;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+    background-color: var(--color-surface);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  &:hover {
+    border-color: #764ba2;
+  }
+  
+  &::placeholder {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+}
+
+@keyframes questionPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}

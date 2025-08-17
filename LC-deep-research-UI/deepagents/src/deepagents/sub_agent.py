@@ -1,5 +1,6 @@
 from deepagents.prompts import TASK_DESCRIPTION_PREFIX, TASK_DESCRIPTION_SUFFIX
 from deepagents.state import DeepAgentState
+from deepagents.tools import ask_user_question
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import BaseTool
 from typing import TypedDict
@@ -29,9 +30,13 @@ def _create_task_tool(tools, instructions, subagents: list[SubAgent], model, sta
         tools_by_name[tool_.name] = tool_
     for _agent in subagents:
         if "tools" in _agent:
-            _tools = [tools_by_name[t] for t in _agent["tools"]]
+            # Sub-agents get their specified tools plus ask_user_question (but NOT respond_to_user)
+            _tools = [tools_by_name[t] for t in _agent["tools"]] + [ask_user_question]
         else:
-            _tools = tools
+            # If no tools specified, give all tools except respond_to_user, plus ask_user_question
+            _tools = [t for t in tools if getattr(t, 'name', '') != 'respond_to_user']
+            if ask_user_question not in _tools:
+                _tools.append(ask_user_question)
         agents[_agent["name"]] = create_react_agent(
             model, prompt=_agent["prompt"], tools=_tools, state_schema=state_schema
         )
