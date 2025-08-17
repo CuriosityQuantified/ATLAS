@@ -18,6 +18,7 @@ from langgraph.graph import StateGraph, END
 
 from .base import BaseAgent, Task, TaskResult, AgentStatus
 from .letta_simple import SimpleLettaAgentMixin
+from .streaming_mixin import StreamingAgentMixin
 from ..agui.handlers import AGUIEventBroadcaster
 from .structure_service_hybrid import get_structure_service, TOOL_SCHEMAS
 
@@ -52,10 +53,10 @@ class SupervisorState(BaseModel):
     is_complete: bool = False
     final_output: str = ""
     iteration_count: int = 0
-    max_iterations: int = 10
+    max_iterations: int = 3  # Reduced to prevent infinite loops
 
 
-class SupervisorAgent(BaseAgent, SimpleLettaAgentMixin):
+class SupervisorAgent(BaseAgent, SimpleLettaAgentMixin, StreamingAgentMixin):
     """
     Base class for all supervisor agents.
     
@@ -103,7 +104,7 @@ class SupervisorAgent(BaseAgent, SimpleLettaAgentMixin):
     
     async def _supervisor_node(self, state: SupervisorState) -> SupervisorState:
         """
-        Supervisor reasoning node.
+        Supervisor reasoning node with streaming support.
         Decides what tools to call or if task is complete.
         """
         await self.update_status(AgentStatus.PROCESSING, "Analyzing task and planning tool usage")
@@ -120,7 +121,21 @@ class SupervisorAgent(BaseAgent, SimpleLettaAgentMixin):
         if state.completed_tool_results and not state.pending_tool_calls:
             # Analyze results and decide next steps
             analysis_prompt = self._build_result_analysis_prompt(state)
-            response = await self.send_to_letta(analysis_prompt)
+            
+            # Use streaming for better UX
+            final_response = None
+            async for chunk in self.stream_to_letta(analysis_prompt):
+                if chunk["type"] == "complete":
+                    final_response = chunk
+                    break
+            
+            if final_response:
+                response = {
+                    "content": final_response["content"],
+                    "tool_calls": final_response.get("tool_calls", [])
+                }
+            else:
+                response = await self.send_to_letta(analysis_prompt)
             
             # Extract any new tool calls
             new_tool_calls = response.get("tool_calls", [])
@@ -146,7 +161,21 @@ class SupervisorAgent(BaseAgent, SimpleLettaAgentMixin):
         # Initial reasoning about the task
         elif not state.messages:
             reasoning_prompt = self._build_initial_reasoning_prompt(state)
-            response = await self.send_to_letta(reasoning_prompt)
+            
+            # Use streaming for initial analysis
+            final_response = None
+            async for chunk in self.stream_to_letta(reasoning_prompt):
+                if chunk["type"] == "complete":
+                    final_response = chunk
+                    break
+            
+            if final_response:
+                response = {
+                    "content": final_response["content"],
+                    "tool_calls": final_response.get("tool_calls", [])
+                }
+            else:
+                response = await self.send_to_letta(reasoning_prompt)
             
             state.messages.append(response.get("content", ""))
             

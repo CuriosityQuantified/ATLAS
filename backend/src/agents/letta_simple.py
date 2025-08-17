@@ -212,10 +212,18 @@ You can make multiple tool calls if needed."""
                     args_line = lines[i + 1].replace("ARGUMENTS:", "").strip()
                     try:
                         # Try to parse as JSON
-                        arguments = json.loads(args_line)
+                        if args_line and args_line != "{" and len(args_line) > 2:
+                            arguments = json.loads(args_line)
+                        else:
+                            # Skip malformed arguments
+                            logger.warning(f"Skipping malformed arguments: {args_line}")
+                            i += 1
+                            continue
                     except:
-                        # Fallback to string
-                        arguments = {"raw": args_line}
+                        # Skip invalid JSON
+                        logger.warning(f"Skipping invalid JSON arguments: {args_line}")
+                        i += 1
+                        continue
                 else:
                     arguments = {}
                 
