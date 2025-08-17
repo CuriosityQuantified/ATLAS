@@ -1,0 +1,48 @@
+{
+  "timestamp": "2025-08-17T18:31:18.683Z",
+  "url": "http://localhost:3003",
+  "results": [
+    {
+      "test": "Navigation",
+      "passed": true,
+      "message": "App loaded successfully"
+    },
+    {
+      "test": "Workspace Creation",
+      "passed": false,
+      "message": "Could not create workspace"
+    },
+    {
+      "test": "Research Query",
+      "passed": true,
+      "message": "Query processed"
+    },
+    {
+      "test": "State Persistence",
+      "passed": true,
+      "message": "State persisted correctly"
+    },
+    {
+      "test": "File Management",
+      "passed": true,
+      "message": "Files tab functional"
+    },
+    {
+      "test": "Progress Tracking",
+      "passed": false,
+      "message": "No progress indicators"
+    },
+    {
+      "test": "Error Handling",
+      "passed": false,
+      "message": "1 console errors, 1 UI errors"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 3,
+    "total": 7,
+    "passRate": "57.1"
+  },
+  "consoleMessages": 9
+}

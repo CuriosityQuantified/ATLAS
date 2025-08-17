@@ -1,0 +1,51 @@
+{
+  "passed": 2,
+  "failed": 5,
+  "total": 7,
+  "passRate": "28.6",
+  "results": [
+    {
+      "name": "Navigation",
+      "passed": true,
+      "message": "Successfully loaded application",
+      "timestamp": "2025-08-17T06:10:49.139Z"
+    },
+    {
+      "name": "Workspace Creation",
+      "passed": false,
+      "message": "No creation method available",
+      "timestamp": "2025-08-17T06:10:50.495Z"
+    },
+    {
+      "name": "Research Query Submission",
+      "passed": false,
+      "message": "locator.count: Unexpected token \"=\" while parsing css selector \"[data-task], .task-item, text=/quantum computing/i\". Did you mean to CSS.escape it?",
+      "timestamp": "2025-08-17T06:10:54.620Z"
+    },
+    {
+      "name": "State Persistence",
+      "passed": false,
+      "message": "page.reload: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for navigation until \"networkidle\"\u001b[22m\n\u001b[2m    - navigated to \"http://localhost:3003/?threadId=fe2e5d48-7f94-4eeb-8c43-f67e0faba1f0\"\u001b[22m\n",
+      "timestamp": "2025-08-17T06:11:54.974Z"
+    },
+    {
+      "name": "File Management",
+      "passed": false,
+      "message": "locator.isVisible: Unexpected token \"=\" while parsing css selector \"button:has-text(\"Files\"), [role=\"tab\"]:has-text(\"Files\"), text=/Files \\(\\d+\\)/\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m    - checking visibility of button:has-text(\"Files\"), [role=\"tab\"]:has-text(\"Files\"), text=/Files \\(\\d+\\)/ >> nth=0\u001b[22m\n",
+      "timestamp": "2025-08-17T06:11:54.975Z"
+    },
+    {
+      "name": "Error Handling",
+      "passed": false,
+      "message": "Errors found: TypeError",
+      "timestamp": "2025-08-17T06:11:54.975Z"
+    },
+    {
+      "name": "Real-time Support",
+      "passed": true,
+      "message": "WebSocket/SSE available",
+      "timestamp": "2025-08-17T06:11:54.982Z"
+    }
+  ],
+  "errors": []
+}
