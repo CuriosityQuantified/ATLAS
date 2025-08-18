@@ -58,8 +58,10 @@ def _create_task_tool(tools, instructions, subagents: list[SubAgent], model, sta
         if subagent_type not in agents:
             return f"Error: invoked agent of type {subagent_type}, the only allowed types are {[f'`{k}`' for k in agents]}"
         sub_agent = agents[subagent_type]
-        state["messages"] = [{"role": "user", "content": description}]
-        result = sub_agent.invoke(state)
+        # Create a copy of state to avoid overwriting parent messages
+        sub_agent_state = state.copy()
+        sub_agent_state["messages"] = [{"role": "user", "content": description}]
+        result = sub_agent.invoke(sub_agent_state)
         return Command(
             update={
                 "files": result.get("files", {}),

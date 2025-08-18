@@ -126,8 +126,18 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
     4. Filter out question response messages (they should only appear in QuestionBox)
     */
       const messageMap = new Map<string, any>();
-      // Filter out question response messages before processing
+      const seenMessageIds = new Set<string>();
+      
+      // Filter out question response messages and duplicates before processing
       const visibleMessages = messages.filter((message: Message) => {
+        // Skip duplicate messages
+        if (message.id && seenMessageIds.has(message.id)) {
+          return false;
+        }
+        if (message.id) {
+          seenMessageIds.add(message.id);
+        }
+        
         // Skip messages that are question responses
         if (message.type === "human" && message.additional_kwargs?.is_question_response) {
           return false;

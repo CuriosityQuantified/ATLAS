@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import { type Message } from "@langchain/langgraph-sdk";
 import { getDeployment } from "@/lib/environment/deployments";
@@ -108,9 +108,10 @@ export function useChat(
         {
           optimisticValues(prev) {
             const prevMessages = prev.messages ?? [];
-            // Don't add to optimistic messages if it's a question response
-            // Let the server handle adding it properly
-            return prev;
+            // Keep existing messages to prevent disappearing
+            // The server will handle proper message ordering
+            // This prevents the UI from flickering
+            return { ...prev, messages: prevMessages };
           },
           config: {
             recursion_limit: 100,

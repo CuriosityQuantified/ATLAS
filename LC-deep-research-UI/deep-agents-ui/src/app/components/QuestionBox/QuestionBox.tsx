@@ -12,15 +12,27 @@ interface QuestionBoxProps {
 }
 
 export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage, sendQuestionResponse }) => {
+  // Derive initial state from toolCall to persist across re-renders
+  const hasExistingAnswer = toolCall.status === "completed" && toolCall.result;
+  const existingAnswer = hasExistingAnswer ? (toolCall.result || "") : "";
+  
   const [answer, setAnswer] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [submittedAnswer, setSubmittedAnswer] = useState("");
+  const [isAnswered, setIsAnswered] = useState(hasExistingAnswer);
+  const [submittedAnswer, setSubmittedAnswer] = useState(existingAnswer);
   const [isEditing, setIsEditing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const question = toolCall.args?.question || "";
   const context = toolCall.args?.context;
+
+  // Sync state with toolCall changes to handle external updates
+  useEffect(() => {
+    if (toolCall.status === "completed" && toolCall.result && !isAnswered) {
+      setIsAnswered(true);
+      setSubmittedAnswer(toolCall.result);
+    }
+  }, [toolCall.status, toolCall.result, isAnswered]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
