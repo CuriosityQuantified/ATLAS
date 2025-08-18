@@ -2,6 +2,7 @@ from deepagents.sub_agent import _create_task_tool, SubAgent
 from deepagents.model import get_default_model
 from deepagents.tools import write_todos, write_file, read_file, ls, edit_file, respond_to_user, ask_user_question
 from deepagents.state import DeepAgentState
+from deepagents.checkpointer import get_checkpointer
 from typing import Sequence, Union, Callable, Any, TypeVar, Type, Optional
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import LanguageModelLike
@@ -57,6 +58,8 @@ def create_deep_agent(
     model: Optional[Union[str, LanguageModelLike]] = None,
     subagents: list[SubAgent] = None,
     state_schema: Optional[StateSchemaType] = None,
+    use_checkpointer: bool = True,
+    checkpointer_type: Optional[str] = None,
 ):
     """Create a deep agent.
 
@@ -75,6 +78,8 @@ def create_deep_agent(
                 - `prompt` (used as the system prompt in the subagent)
                 - (optional) `tools`
         state_schema: The schema of the deep agent. Should subclass from DeepAgentState
+        use_checkpointer: Whether to enable checkpointing for state persistence. Default is True.
+        checkpointer_type: Type of checkpointer to use ('sqlite', 'postgres', or None for auto-detect)
     """
     prompt = instructions + base_prompt
     # Main agent gets both respond_to_user and ask_user_question
@@ -90,9 +95,20 @@ def create_deep_agent(
         state_schema
     )
     all_tools = built_in_tools + list(tools) + [task_tool]
+    
+    # Get checkpointer if enabled
+    checkpointer = None
+    if use_checkpointer:
+        checkpointer = get_checkpointer(checkpointer_type)
+        if checkpointer:
+            print(f"Using checkpointer: {type(checkpointer).__name__}")
+        else:
+            print("Warning: Checkpointing requested but no checkpointer available")
+    
     return create_react_agent(
         model,
         prompt=prompt,
         tools=all_tools,
         state_schema=state_schema,
+        checkpointer=checkpointer,
     )

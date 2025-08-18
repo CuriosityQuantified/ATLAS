@@ -17,7 +17,7 @@ import type { SubAgent, TodoItem, ToolCall } from "../../types/types";
 import { useChat } from "../../hooks/useChat";
 import styles from "./ChatInterface.module.scss";
 import { Message } from "@langchain/langgraph-sdk";
-import { extractStringFromMessageContent } from "../../utils/utils";
+import { extractStringFromMessageContent, deduplicateMessages } from "../../utils/utils";
 
 interface ChatInterfaceProps {
   threadId: string | null;
@@ -126,18 +126,15 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
     4. Filter out question response messages (they should only appear in QuestionBox)
     */
       const messageMap = new Map<string, any>();
-      const seenMessageIds = new Set<string>();
       
-      // Filter out question response messages and duplicates before processing
-      const visibleMessages = messages.filter((message: Message) => {
-        // Skip duplicate messages
-        if (message.id && seenMessageIds.has(message.id)) {
-          return false;
-        }
-        if (message.id) {
-          seenMessageIds.add(message.id);
-        }
-        
+      // Ensure messages is a valid array and filter out any null/undefined values
+      const validMessages = (messages || []).filter(Boolean);
+      
+      // First deduplicate messages using our utility function
+      const dedupedMessages = deduplicateMessages(validMessages);
+      
+      // Then filter out question response messages
+      const visibleMessages = dedupedMessages.filter((message: Message) => {
         // Skip messages that are question responses
         if (message.type === "human" && message.additional_kwargs?.is_question_response) {
           return false;
@@ -231,12 +228,36 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
             if (toolCallIndex === -1) {
               continue;
             }
-            data.toolCalls[toolCallIndex] = {
-              ...data.toolCalls[toolCallIndex],
-              status: "completed" as const,
-              // TODO: Make this nicer
-              result: extractStringFromMessageContent(message),
-            };
+            
+            const toolCall = data.toolCalls[toolCallIndex];
+            const messageContent = extractStringFromMessageContent(message);
+            
+            // Special handling for ask_user_question tool
+            if (toolCall.name === "ask_user_question") {
+              // Check if this is just an acknowledgment or a real answer
+              const isAcknowledgment = 
+                messageContent.startsWith("Question:") ||
+                messageContent.includes("Waiting for user response") ||
+                messageContent === toolCall.args?.question ||
+                messageContent === `Question: ${toolCall.args?.question}`;
+              
+              if (!isAcknowledgment) {
+                // This is a real user answer, mark as completed
+                data.toolCalls[toolCallIndex] = {
+                  ...toolCall,
+                  status: "completed" as const,
+                  result: messageContent,
+                };
+              }
+              // Don't update status for acknowledgments - keep it pending
+            } else {
+              // Normal tool completion for other tools
+              data.toolCalls[toolCallIndex] = {
+                ...toolCall,
+                status: "completed" as const,
+                result: messageContent,
+              };
+            }
             break;
           }
         } else if (message.type === "human") {

@@ -12,6 +12,37 @@ export function extractStringFromMessageContent(message: Message): string {
 }
 
 /**
+ * Deduplicates messages by their ID to prevent duplicate messages in the UI
+ * @param messages Array of messages that may contain duplicates
+ * @returns Array of unique messages preserving the order (keeps first occurrence)
+ */
+export function deduplicateMessages(messages: Message[]): Message[] {
+  const seen = new Set<string>();
+  const deduplicated: Message[] = [];
+  
+  for (const message of messages) {
+    // Skip undefined or null messages
+    if (!message) {
+      continue;
+    }
+    
+    // Skip messages without IDs (shouldn't happen but be safe)
+    if (!message.id) {
+      deduplicated.push(message);
+      continue;
+    }
+    
+    // Only add if we haven't seen this ID before
+    if (!seen.has(message.id)) {
+      seen.add(message.id);
+      deduplicated.push(message);
+    }
+  }
+  
+  return deduplicated;
+}
+
+/**
  * Safely serializes an object to JSON, handling circular references and non-serializable values
  * @param obj The object to serialize
  * @param space Optional formatting space

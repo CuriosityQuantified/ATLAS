@@ -12,13 +12,31 @@ interface QuestionBoxProps {
 }
 
 export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage, sendQuestionResponse }) => {
+  // Helper function to detect if a message is just a question acknowledgment
+  const isQuestionAcknowledgment = (message: string | undefined): boolean => {
+    if (!message) return true;
+    
+    // Detect various forms of question echoes and acknowledgments
+    return (
+      message.startsWith("Question:") || 
+      message.startsWith("Waiting for user response") ||
+      message === toolCall.args?.question ||
+      message.includes("Waiting for user response to:") ||
+      // Also check if it's exactly the question wrapped in a standard format
+      message === `Question: ${toolCall.args?.question}`
+    );
+  };
+  
   // Derive initial state from toolCall to persist across re-renders
-  const hasExistingAnswer = toolCall.status === "completed" && toolCall.result;
-  const existingAnswer = hasExistingAnswer ? (toolCall.result || "") : "";
+  // Only consider it answered if we have a real answer, not just an acknowledgment
+  const hasRealAnswer = toolCall.status === "completed" && 
+                       toolCall.result && 
+                       !isQuestionAcknowledgment(toolCall.result);
+  const existingAnswer = hasRealAnswer ? (toolCall.result || "") : "";
   
   const [answer, setAnswer] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isAnswered, setIsAnswered] = useState(hasExistingAnswer);
+  const [isAnswered, setIsAnswered] = useState(hasRealAnswer);
   const [submittedAnswer, setSubmittedAnswer] = useState(existingAnswer);
   const [isEditing, setIsEditing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -28,9 +46,12 @@ export const QuestionBox: React.FC<QuestionBoxProps> = ({ toolCall, sendMessage,
 
   // Sync state with toolCall changes to handle external updates
   useEffect(() => {
+    // Only update if we have a real answer, not just an acknowledgment
     if (toolCall.status === "completed" && toolCall.result && !isAnswered) {
-      setIsAnswered(true);
-      setSubmittedAnswer(toolCall.result);
+      if (!isQuestionAcknowledgment(toolCall.result)) {
+        setIsAnswered(true);
+        setSubmittedAnswer(toolCall.result);
+      }
     }
   }, [toolCall.status, toolCall.result, isAnswered]);
 

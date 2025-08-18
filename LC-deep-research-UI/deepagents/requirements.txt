@@ -1,0 +1,11 @@
+# Core dependencies
+langgraph>=0.2.6
+langchain-openai>=0.1.0
+langchain>=0.2.14
+
+# Checkpointing dependencies
+langgraph-checkpoint-sqlite>=2.0.0
+langgraph-checkpoint-postgres>=2.0.0
+
+# Optional dependencies for development
+python-dotenv
