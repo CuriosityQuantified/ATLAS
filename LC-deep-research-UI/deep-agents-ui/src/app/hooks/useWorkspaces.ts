@@ -233,20 +233,33 @@ export function useWorkspaces() {
       }
     }
     
+    // Create a completely new, blank workspace with no references to existing state
     const newWorkspace: Workspace = {
       id: newWorkspaceId,
       title: newTitle,
-      threadId: null,
+      threadId: null,  // Always start with no thread
       isActive: false,
       createdAt: new Date(),
-      todos: [],
-      files: {},
+      todos: [],        // Always start with empty todos
+      files: {},        // Always start with empty files
     };
     
-    setWorkspaces((prev) => [...prev, newWorkspace]);
+    // Important: Create fresh arrays/objects to avoid reference issues
+    setWorkspaces((prev) => {
+      // Create a new array with the new workspace
+      const updated = [...prev, { ...newWorkspace }];
+      return updated;
+    });
+    
+    // Set as active workspace
     setActiveWorkspaceId(newWorkspaceId);
     
-    console.log('Created new workspace:', { id: newWorkspaceId, title: newTitle });
+    console.log('Created blank workspace:', { 
+      id: newWorkspaceId, 
+      title: newTitle,
+      todos: newWorkspace.todos.length,
+      files: Object.keys(newWorkspace.files).length 
+    });
     // Don't return anything - TabsManager expects () => void
   }, [workspaces]);
 

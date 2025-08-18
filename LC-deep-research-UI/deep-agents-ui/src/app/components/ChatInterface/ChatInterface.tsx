@@ -169,13 +169,33 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(
                 {};
               // Parse args if they're a JSON string
               let args = rawArgs;
-              if (typeof rawArgs === 'string') {
+              if (typeof rawArgs === 'string' && rawArgs.trim() !== '') {
                 try {
-                  args = JSON.parse(rawArgs);
+                  // Check if the string looks like valid JSON before parsing
+                  // This helps catch unterminated strings early
+                  const trimmed = rawArgs.trim();
+                  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                    // Validate JSON string completeness
+                    const openBraces = (trimmed.match(/[{[]/g) || []).length;
+                    const closeBraces = (trimmed.match(/[}\]]/g) || []).length;
+                    
+                    if (openBraces === closeBraces) {
+                      args = JSON.parse(rawArgs);
+                    } else {
+                      console.warn('Incomplete JSON string detected, using raw value');
+                      args = { raw: rawArgs };
+                    }
+                  } else {
+                    // Not a JSON string, use as-is
+                    args = { raw: rawArgs };
+                  }
                 } catch (e) {
                   console.error('Failed to parse tool call arguments:', e);
+                  console.error('Raw args that failed:', rawArgs);
                   args = { raw: rawArgs };
                 }
+              } else if (rawArgs === null || rawArgs === undefined || rawArgs === '') {
+                args = {};
               }
               return {
                 id: toolCall.id || `tool-${Math.random()}`,
