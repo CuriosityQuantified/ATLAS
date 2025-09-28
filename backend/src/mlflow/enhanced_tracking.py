@@ -58,6 +58,52 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
         self.llm_interactions: List[LLMInteraction] = []
         self.tool_calls: List[ToolCall] = []
         self.conversation_turns: List[ConversationTurn] = []
+        self.current_run = None
+
+    def log_metric(self, key: str, value: float, step: Optional[int] = None):
+        """
+        Log a single metric to MLflow.
+
+        Args:
+            key: Metric name
+            value: Metric value
+            step: Optional step for time-series metrics
+        """
+        try:
+            import mlflow
+            mlflow.log_metric(key, value, step=step)
+        except Exception as e:
+            logger.warning(f"Failed to log metric {key}: {e}")
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+        """
+        Log multiple metrics to MLflow.
+
+        Args:
+            metrics: Dictionary of metric names and values
+            step: Optional step for time-series metrics
+        """
+        try:
+            import mlflow
+            mlflow.log_metrics(metrics, step=step)
+        except Exception as e:
+            logger.warning(f"Failed to log metrics: {e}")
+
+    def log_artifact_json(self, data: Dict[str, Any], artifact_path: str):
+        """
+        Log JSON data as an MLflow artifact.
+
+        Args:
+            data: Dictionary to save as JSON
+            artifact_path: Path for the artifact
+        """
+        try:
+            import json
+            import mlflow
+            json_str = json.dumps(data, indent=2, default=str)
+            mlflow.log_text(json_str, artifact_file=artifact_path)
+        except Exception as e:
+            logger.warning(f"Failed to log artifact {artifact_path}: {e}")
 
     def log_llm_interaction(self, interaction: LLMInteraction):
         """Log an LLM interaction."""
@@ -96,15 +142,13 @@ class EnhancedATLASTracker(ATLASMLflowTracker):
 
     def get_session_summary(self) -> Dict[str, Any]:
         """Get comprehensive session summary."""
-        base_summary = super().get_session_summary()
-
-        # Add enhanced tracking data
-        base_summary.update({
+        # Build base summary
+        base_summary = {
             "llm_interactions": len(self.llm_interactions),
             "tool_calls": len(self.tool_calls),
             "conversation_turns": len(self.conversation_turns),
             "total_tokens": sum(i.tokens_used.get("total", 0) for i in self.llm_interactions),
             "avg_latency_ms": sum(i.latency_ms for i in self.llm_interactions) / len(self.llm_interactions) if self.llm_interactions else 0
-        })
+        }
 
         return base_summary

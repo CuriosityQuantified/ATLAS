@@ -1,23 +1,32 @@
 # ATLAS POC Implementation Plan - Tool-Based Architecture
 
 **Created**: September 22, 2025
-**Last Updated**: September 23, 2025
-**Status**: Phase 2 In Progress
+**Last Updated**: January 27, 2025
+**Status**: Phase 3 Completed ✅, Phase 4 Ready to Start
 **Architecture**: Tool-Based Supervisor with Local Letta
 
 ## Overview
 Transform the ATLAS supervisor agent to use a tool-based architecture where sub-agents (Research, Analysis, Writing) are exposed as tools, along with planning, todo management, and file operations. **Letta will run locally, not using cloud API.**
 
+## Recent Updates (January 27, 2025)
+- ✅ Switched from OpenRouter to OpenAI models for full Letta compatibility
+- ✅ Implemented comprehensive .gitignore and .env.example
+- ✅ Successfully tested all agent types with OpenAI integration
+- ✅ Force-pushed clean codebase to GitHub
+- ✅ Fixed all Letta API compatibility issues (retrieve, create, ReasoningMessage)
+- ✅ Completed Phase 3: MLflow Integration with 5/5 tests passing
+
 ## Phase 1: Dependencies & Local Letta Setup ✅ COMPLETED
 
-### 1.1 Update Dependencies
+### 1.1 Update Dependencies ✅
 **File**: `backend/requirements.txt`
 - [x] Added `letta>=0.11.0` and `letta-client>=0.1.0`
 - [x] Added `sqlite-vec>=0.1.0` for vector support
+- [x] Added `mlflow>=3.0.0` for tracking
 - [ ] Add `helix-db>=0.1.0` for knowledge storage (Phase 5)
 - [ ] Add `e2b-code-interpreter>=0.0.10` for code execution (Phase 4)
 - [ ] Add `firecrawl-py>=1.0.0` for web scraping (Phase 4)
-- [x] Run `source .venv/bin/activate && uv pip install -r backend/requirements.txt`
+- [x] Installed all dependencies with `uv pip install`
 
 ### 1.2 Local Letta Server Setup ✅
 **Action**: Configured local Letta server with Web ADE support
@@ -27,22 +36,19 @@ Transform the ATLAS supervisor agent to use a tool-based architecture where sub-
 ```
 
 **File**: `backend/src/agents/letta_config.py` ✅
-```python
-# Configuration for local Letta connection
-LETTA_BASE_URL = os.getenv("LETTA_SERVER_URL", "http://localhost:8283")
-LETTA_API_KEY = None  # No API key needed for local mode
-```
+- Successfully implemented local server configuration
+- Health check and ADE connection info functions
+- Environment validation
 
 ### 1.3 Environment Configuration ✅
-**File**: `.env` updates
-```
-# Letta - LOCAL MODE
-LETTA_SERVER_URL=http://localhost:8283
-LETTA_LOCAL_MODE=true
-# LETTA_API_KEY not needed for local mode
-```
+**File**: `.env.example` - Comprehensive template created
+- OpenAI API keys for models and embeddings
+- Letta local mode configuration
+- Database configurations
+- MLflow settings
+- Feature flags
 
-## Phase 2: Agent Architecture Implementation 🔄 IN PROGRESS
+## Phase 2: Agent Architecture Implementation ✅ COMPLETED
 
 ### 2.1 Session-Based Architecture ✅
 **Key Principle**: Each chat session gets an auto-created project directory
@@ -51,25 +57,42 @@ LETTA_LOCAL_MODE=true
 - No manual project setup required
 - Session initialized by backend on first user message
 
-### 2.2 Supervisor Agent Tools (Streamlined)
+### 2.2 Model Integration (Updated) ✅
+
+#### OpenAI Configuration ✅ NEW
+**File**: `backend/src/config/openai_config.py`
+- Created OpenAIConfig class with model hierarchy:
+  - **Supervisor**: GPT-4o (complex reasoning)
+  - **Writing**: GPT-4o (high-quality output)
+  - **Research**: GPT-4o-mini (cost-effective)
+  - **Analysis**: GPT-4o-mini (cost-effective)
+- **Embeddings**: text-embedding-3-small (1536 dimensions)
+- Cost tracking built into configuration
+
+#### Agent Factory Updates ✅
+**File**: `backend/src/agents/agent_factory.py`
+- [x] Updated all agent creation methods to use OpenAI models
+- [x] Proper API key configuration for LLM and embeddings
+- [x] Removed OpenRouter dependencies (preserved in config for future)
+- [x] All agent types tested and working
+
+### 2.3 Supervisor Agent Tools ✅
 
 #### Planning Tools ✅ COMPLETED
 **File**: `backend/src/agents/tools/planning_tool.py`
-- [x] `plan_task(task, context, agent_memory)` -> LLM-based planning with:
-  - task_type (not agent_type)
-  - dependencies (required field)
-  - NO priority field
+- [x] `plan_task(task, context, agent_memory)` -> LLM-based planning
 - [x] `update_plan(plan_id, updates, feedback)` -> Modifies existing plan
+- [x] Namespace isolation for multi-agent support
 
 #### Todo Management ✅ COMPLETED
 **File**: `backend/src/agents/tools/todo_tool.py`
-- [x] `create_todo(task_id, description, task_type, dependencies)` -> Adds task
-- [x] `update_todo_status(task_id, status, result, error)` -> Updates progress
-- [x] NO query tools (supervisor maintains full context)
+- [x] `create_todo(task_id, description, task_type, dependencies)`
+- [x] `update_todo_status(task_id, status, result, error)`
+- [x] Full context maintained in supervisor memory
 
 #### File Operations ✅ COMPLETED
 **File**: `backend/src/agents/tools/file_tool.py`
-- [x] `initialize_session(session_id)` -> Called by backend on chat start
+- [x] `initialize_session(session_id)` -> Auto-creates session directory
 - [x] `save_output(filename, content, file_type, subdirectory)`
 - [x] `load_file(filename, subdirectory)`
 - [x] `append_content(filename, content, subdirectory)`
@@ -78,257 +101,176 @@ LETTA_LOCAL_MODE=true
 #### Delegation Tools ✅ COMPLETED
 **Files created**:
 - [x] `backend/src/agents/tools/research_tool.py`
-  - `delegate_research(context, task_description, restrictions)` - XML-structured prompts
-  - `get_research_status(agent_id)` - Query research progress
 - [x] `backend/src/agents/tools/analysis_tool.py`
-  - `delegate_analysis(context, task_description, restrictions)` - XML-structured prompts
-  - `get_analysis_status(agent_id)` - Query analysis progress
 - [x] `backend/src/agents/tools/writing_tool.py`
-  - `delegate_writing(context, task_description, restrictions)` - XML-structured prompts
-  - `get_writing_status(agent_id)` - Query writing progress
+- All tools use XML-structured prompts and namespace isolation
 
-### 2.3 Namespace Isolation Architecture ✅ NEW
-**Key Innovation**: Each agent gets isolated planning/todo storage
-- Planning tool maintains `_plan_stores: Dict[str, List[Dict]]`
-- Todo tool maintains `_todo_stores: Dict[str, List[Dict]]`
-- Namespace format: `"{agent_type}_{agent_id}"` (e.g., `research_abc123`)
-- Supervisor uses default namespace (None maps to "supervisor")
+### 2.4 Namespace Isolation Architecture ✅
+- Each agent gets isolated planning/todo storage
+- Namespace format: `"{agent_type}_{agent_id}"`
 - Prevents cross-agent task/plan conflicts
 
-### 2.4 Supervisor Behavior
-- Maintains complete plan and todo list in context window
-- Analyzes dependencies before delegating tasks
-- Delegates multiple tasks in parallel when no dependencies exist
-- Never delegates dependent tasks until prerequisites complete
-- Emphasis on delegation over direct execution
+### 2.5 Testing & Validation ✅
 
-### 2.5 Sub-Agent Creation with Local Letta
-**Updates to agent_factory.py**:
-- `create_research_agent()`:
-  - Register web_search tool (Firecrawl)
-  - Register store_research tool (HelixDB)
-- `create_analysis_agent()`:
-  - Register run_code tool (E2B)
-  - Register read_research tool (HelixDB)
-  - Register store_analysis tool (HelixDB)
-- `create_writing_agent()`:
-  - Register read_knowledge tool (HelixDB)
-  - Register file operation tools
+#### OpenAI Integration Testing ✅ NEW
+**File**: `backend/tests/test_openai_integration.py`
+- [x] Configuration module tests
+- [x] Agent creation with OpenAI models
+- [x] Message sending and receiving
+- [x] All agent types (supervisor, research, analysis, writing)
+- **Result**: 3/3 tests passing
 
-### 2.6 Sub-Agent Tool Wrappers (Delegation Tools) ✅ COMPLETED
-**File**: `backend/src/agents/tools/research_tool.py`
-- Implemented `delegate_research(context, task_description, restrictions)`:
-  - Creates/retrieves research agent via LettaAgentFactory
-  - Sends XML-structured prompt with context
-  - Returns delegation status with agent_id
-  - Includes namespace for isolated planning/todo
+#### OpenRouter Testing (Archived) ✅
+**File**: `backend/tests/test_openrouter_configurations.py`
+- Comprehensive test suite with 13 configuration approaches
+- Discovered Letta authentication issues with OpenRouter
+- Code preserved for future when Letta adds proper support
 
-**File**: `backend/src/agents/tools/analysis_tool.py`
-- Implemented `delegate_analysis(context, task_description, restrictions)`:
-  - Creates/retrieves analysis agent via LettaAgentFactory
-  - Uses same XML prompt structure as research
-  - Returns delegation status with agent_id
-  - Namespace isolation for independent task tracking
+## Phase 3: MLflow Integration ✅ COMPLETED (January 27, 2025)
 
-**File**: `backend/src/agents/tools/writing_tool.py`
-- Implemented `delegate_writing(context, task_description, restrictions)`:
-  - Creates/retrieves writing agent via LettaAgentFactory
-  - Consistent XML prompt structure
-  - Returns delegation status with agent_id
-  - Isolated namespace for writing tasks
-
-## Phase 3: MLflow Integration
-
-### 3.1 Enhanced MLflow Tracking for Agents
+### 3.1 Enhanced MLflow Tracking for Agents ✅
 **File**: `backend/src/mlflow/agent_tracking.py`
-```python
-class AgentMLflowTracker:
-    """Enhanced tracking for tool-based agent architecture."""
+- [x] Implemented AgentMLflowTracker class
+- [x] Track agent creation with tools
+- [x] Log tool invocations and results
+- [x] Track planning outputs
+- [x] Monitor knowledge operations
 
-    def track_agent_creation(self, agent_id: str, agent_type: str, tools: list):
-        """Log agent creation with tool registration."""
-        mlflow.log_param(f"{agent_id}_type", agent_type)
-        mlflow.log_param(f"{agent_id}_tools", tools)
+### 3.2 Integration with Supervisor Agent ✅
+**Updates to**: `backend/src/agents/supervisor.py`
+- [x] Initialize MLflow tracker in constructor
+- [x] Track agent creation with tools
+- [x] Wrap all tool calls with tracking
+- [x] Added cleanup method for closing MLflow session
 
-    def track_tool_call(self, agent_id: str, tool_name: str, params: dict):
-        """Log each tool invocation."""
-        mlflow.log_metric(f"{agent_id}_{tool_name}_calls", 1)
-        mlflow.log_dict(params, f"tool_calls/{agent_id}_{tool_name}_{timestamp}.json")
-
-    def track_tool_result(self, agent_id: str, tool_name: str, result: dict, duration: float):
-        """Log tool execution results and performance."""
-        mlflow.log_metric(f"{agent_id}_{tool_name}_duration", duration)
-        mlflow.log_dict(result, f"tool_results/{agent_id}_{tool_name}_{timestamp}.json")
-
-    def track_plan(self, plan: dict):
-        """Log planning tool output."""
-        mlflow.log_dict(plan, "plans/plan_{timestamp}.json")
-        mlflow.log_metric("plan_steps", len(plan.get("steps", [])))
-
-    def track_knowledge_operation(self, operation: str, data_size: int):
-        """Log HelixDB operations."""
-        mlflow.log_metric(f"helix_{operation}_count", 1)
-        mlflow.log_metric(f"helix_{operation}_size", data_size)
-```
-
-### 3.2 Integration with Supervisor Agent
-**Updates to**: `backend/src/agents/supervisor_agent.py`
-- Initialize MLflow tracker in constructor
-- Track agent creation with tools
-- Wrap all tool calls with tracking
-
-### 3.3 MLflow Dashboards for Tool-Based Architecture
+### 3.3 MLflow Dashboards ✅
 **File**: `backend/src/mlflow/dashboards.py`
-- Create custom views for:
-  - Tool usage frequency by agent
-  - Tool execution times
-  - Planning effectiveness (steps completed vs planned)
-  - Knowledge storage growth over time
-  - Cost tracking per tool (especially API-based tools)
+- [x] Tool usage frequency by agent
+- [x] Tool execution times
+- [x] Planning effectiveness metrics
+- [x] Cost tracking per tool
+- [x] Agent performance comparison
 
-### 3.4 Cost Tracking for External Tools
+### 3.4 Cost Tracking ✅
 **File**: `backend/src/mlflow/cost_tracking.py`
-- Track costs for Firecrawl, E2B, GPT-4/Claude planning
-- Aggregate costs per task and per session
-- Alert on cost thresholds
+- [x] Track OpenAI API costs with accurate pricing
+- [x] Aggregate costs per task and session
+- [x] Alert on cost thresholds
+- [x] Token efficiency metrics
+- [x] Daily cost projections
 
-## Phase 4: Tool Implementation
+## Phase 4: Tool Implementation (External Services)
 
-### 4.1 Planning Tool (LLM-based)
-**File**: `backend/src/agents/tools/planning_tool.py`
-- LLM-based planning with GPT-4 or Claude
-- Accepts task and full context from supervisor
-- Returns structured plan with steps, dependencies, estimates
-- **Future**: DSPy optimization (see Future Phases)
-
-### 4.2 Research Tools
+### 4.1 Research Tools
 **File**: `backend/src/agents/tools/firecrawl_tool.py`
-- Web search and scraping via Firecrawl API
-- Result formatting with sources
-- Local caching to avoid duplicate searches
-- Cost and rate limit tracking
+- [ ] Web search and scraping via Firecrawl API
+- [ ] Result formatting with sources
+- [ ] Local caching to avoid duplicate searches
 
-### 4.3 Analysis Tools
+### 4.2 Analysis Tools
 **File**: `backend/src/agents/tools/e2b_tool.py`
-- Code execution in E2B sandbox
-- Support for Python, JavaScript, R
-- Output and error capture
-- Execution time limits
+- [ ] Code execution in E2B sandbox
+- [ ] Support for Python, JavaScript, R
+- [ ] Output and error capture
 
-### 4.4 File Operation Tools
-**File**: `backend/src/agents/tools/file_tools.py`
-- Create, read, update file operations
-- Path validation and security
-- Automatic backup on updates
-- Directory creation as needed
-
-### 4.5 Todo Management Tool
-**File**: `backend/src/agents/tools/todo_tool.py`
-- Parse and update todo lists in agent memory
-- Track completion status
-- Priority management
-- MLflow metrics for todo completion rates
+### 4.3 Enhanced Planning
+- [ ] Consider DSPy optimization for planning tool
+- [ ] A/B testing of prompt strategies
 
 ## Phase 5: HelixDB Knowledge Storage
 
 ### 5.1 HelixDB Client Implementation
 **File**: `backend/src/agents/database/helix_client.py`
-- Local graph database for knowledge storage
-- Methods for storing research, analysis, and queries
-- Metadata and timestamp tracking
-- MLflow integration for operation metrics
+- [ ] Local graph database setup
+- [ ] Knowledge storage and retrieval methods
+- [ ] Metadata tracking
 
 ### 5.2 HelixDB Integration Tools
 **File**: `backend/src/agents/tools/helix_tools.py`
-- Wrappers for agent-specific operations
-- Research storage and retrieval
-- Analysis linking to research
-- Knowledge queries for writing agent
+- [ ] Research storage and retrieval
+- [ ] Analysis linking to research
+- [ ] Knowledge queries for writing agent
 
 ## Phase 6: CopilotKit & AG-UI Integration
 
 ### 6.1 Update CopilotKit Bridge
 **File**: `backend/src/agui/copilot_bridge.py`
-- Replace orchestrate_task with tool-based flow
-- Stream tool events through AG-UI
-- Include MLflow run IDs in responses
+- [ ] Replace orchestrate_task with tool-based flow
+- [ ] Stream tool events through AG-UI
+- [ ] Include MLflow run IDs in responses
 
 ### 6.2 AG-UI Event Extensions
 **File**: `backend/src/agui/events.py`
-New event types:
-- TOOL_CALLED
-- TOOL_RESULT
-- PLAN_CREATED
-- PLAN_UPDATED
-- KNOWLEDGE_STORED
-- TODO_UPDATED
-- MLFLOW_METRIC
+- [ ] Add new event types for tools
+- [ ] Plan and todo update events
+- [ ] Knowledge storage events
 
 ### 6.3 Frontend Updates
 **File**: `frontend/src/app/poc/page.tsx`
-- Tool call visualization
-- Real-time plan and todo updates
-- Knowledge graph display
-- MLflow metrics in UI
+- [ ] Tool call visualization
+- [ ] Real-time plan and todo updates
+- [ ] MLflow metrics display
 
-## Phase 7: Testing & Validation
+## Phase 7: End-to-End Testing
 
-### 7.1 Unit Testing
-- Individual tool testing with mocks
-- Agent creation and tool registration
-- MLflow tracking verification
+### 7.1 Integration Testing
+- [ ] Agent-to-agent communication
+- [ ] Knowledge persistence
+- [ ] Cost tracking accuracy
 
-### 7.2 Integration Testing
-- Agent-to-agent communication
-- Knowledge persistence in HelixDB
-- File operations
-- Cost tracking accuracy
-
-### 7.3 End-to-End Testing
-Test scenarios:
-1. Research and analysis workflow
-2. Technical documentation generation
-3. Multi-step planning execution
+### 7.2 Workflow Testing
+- [ ] Research and analysis workflow
+- [ ] Technical documentation generation
+- [ ] Multi-step planning execution
 
 ## Development Checkpoints
 
 - [x] **Checkpoint 1**: Local Letta server running with test agent
-- [x] **Checkpoint 2**: Agents created locally with tool stubs (100% complete)
-  - [x] Planning, Todo, File tools implemented with namespace isolation
-  - [x] Delegation tools created with XML prompt structure
-  - [x] All tools registered in tool_registry.py
-- [ ] **Checkpoint 3**: MLflow tracking all agent operations
-- [ ] **Checkpoint 4**: All tools implemented and tracked
-- [ ] **Checkpoint 5**: HelixDB storing and retrieving data locally
-- [ ] **Checkpoint 6**: Full workflow executing with complete observability
-- [ ] **Checkpoint 7**: CopilotKit UI showing tool execution and metrics
+- [x] **Checkpoint 2**: Agents created locally with OpenAI models (100% complete)
+  - [x] Planning, Todo, File tools implemented
+  - [x] Delegation tools created with XML prompts
+  - [x] All tools registered and working
+  - [x] OpenAI integration fully tested
+- [x] **Checkpoint 3**: MLflow tracking all agent operations (100% complete)
+  - [x] Agent creation and tool tracking
+  - [x] Cost tracking with OpenAI pricing
+  - [x] Dashboard generation and reporting
+  - [x] Integration tests passing (5/5 - All tests passing!)
+- [ ] **Checkpoint 4**: External tools (Firecrawl, E2B) integrated
+- [ ] **Checkpoint 5**: HelixDB storing and retrieving data
+- [ ] **Checkpoint 6**: Full workflow with complete observability
+- [ ] **Checkpoint 7**: CopilotKit UI showing tool execution
 
-## Future Phases (Post-POC)
+## Current Implementation Status
 
-### Phase 8: Librarian Agent Implementation
-**Purpose**: Intelligent knowledge management and retrieval
-- Create Librarian agent as a specialized tool for all agents
-- Implement semantic search across all stored knowledge
-- Add citation tracking and source verification
-- Create knowledge graph visualization
-- Implement knowledge pruning and consolidation
+### ✅ Completed
+1. **Local Letta Server**: Running at http://localhost:8283
+2. **OpenAI Integration**: All agents using GPT-4o/GPT-4o-mini
+3. **Agent Factory**: Creating agents with proper configurations
+4. **Tool Architecture**: Planning, todo, file, and delegation tools
+5. **Testing Suite**: Comprehensive tests for OpenAI integration
+6. **Repository Structure**: Clean .gitignore and .env.example
+7. **MLflow Tracking**: Complete agent tracking with tools and planning
+8. **Cost Tracking**: OpenAI API cost monitoring with accurate pricing
+9. **Dashboard Generation**: MLflow dashboards and reporting
+10. **Letta API Fixes**: All API compatibility issues resolved
 
-### Phase 9: DSPy Planning Optimization
-**Purpose**: Improve planning quality and consistency
-- Replace LLM prompts with DSPy modules
-- Implement ChainOfThought for complex planning
-- Use DSPy compiler to optimize prompts
-- Add assertion-based plan validation
-- Create few-shot example bank
-- A/B test DSPy vs standard prompting
-- Track improvement metrics in MLflow
+### 🔄 In Progress
+- None - Ready for Phase 4
 
-### Phase 10: Production Enhancements
-- Multi-user support with session isolation
-- Agent state persistence and recovery
-- Horizontal scaling with multiple Letta servers
-- Advanced cost optimization strategies
-- Real-time collaboration features
+### 📋 Next Steps
+1. Add Firecrawl for web research (Phase 4.1)
+2. Add E2B for code execution (Phase 4.2)
+3. Set up HelixDB for knowledge storage (Phase 5)
+4. Integrate with CopilotKit & AG-UI (Phase 6)
+
+## Key Architecture Decisions
+
+1. **OpenAI Models**: Switched from OpenRouter for Letta compatibility
+2. **Local Letta**: Privacy, control, no cloud API costs
+3. **Tools as Functions**: Clean separation of concerns
+4. **MLflow First**: Observability from the start
+5. **Progressive Enhancement**: POC first, optimize later
 
 ## Local Development Setup
 
@@ -336,9 +278,9 @@ Test scenarios:
 ```bash
 # Terminal 1: Letta Server (REQUIRED)
 source .venv/bin/activate
-letta server --port 8283
+letta server --port 8283 --ade --host 0.0.0.0
 
-# Terminal 2: MLflow (REQUIRED)
+# Terminal 2: MLflow (OPTIONAL - for tracking)
 mlflow server --host 0.0.0.0 --port 5002
 
 # Terminal 3: Backend FastAPI
@@ -352,48 +294,27 @@ npm run dev
 
 ### Service URLs
 - Letta Server: http://localhost:8283
+- Letta Web ADE: https://app.letta.com (connect to local server)
 - MLflow UI: http://localhost:5002
 - Backend API: http://localhost:8000/docs
 - Frontend: http://localhost:3000/poc
 
-## Key Design Decisions
-
-1. **Local Letta**: Privacy, control, no API costs
-2. **Tools as Functions**: Clean separation of concerns
-3. **MLflow First**: Observability from the start
-4. **HelixDB**: Graph structure for knowledge relationships
-5. **Progressive Enhancement**: POC first, optimize later
-
-## Success Criteria
-
-1. **Functional**: Complete task execution through tool calls
-2. **Observable**: Full visibility via MLflow
-3. **Persistent**: Knowledge retained across sessions
-4. **Scalable**: Architecture supports future enhancements
-5. **Maintainable**: Clear code structure and documentation
-
-## Risk Mitigation
-
-| Risk | Mitigation |
-|------|------------|
-| Letta server crashes | Auto-restart script, state persistence |
-| Tool registration fails | Validation before registration, graceful degradation |
-| HelixDB corruption | Regular backups, SQLite fallback |
-| API rate limits | Caching, exponential backoff, cost alerts |
-| Memory overflow | Context window management, memory pruning |
+## Repository Information
+- **GitHub**: https://github.com/CuriosityQuantified/ATLAS
+- **Latest Commit**: Major refactor with OpenAI models
+- **Status**: Clean baseline established, ready for Phase 3
 
 ## Notes
 
 - Each phase should be committed separately
-- Test incrementally, don't wait for full implementation
-- Monitor resource usage (CPU, memory, disk)
-- Keep detailed logs for debugging
+- Test incrementally with each major change
+- Monitor OpenAI API usage and costs
 - Document any deviations from plan
+- OpenRouter code preserved for future integration
 
 ---
 
 **Next Steps**:
-1. Review and approve plan
-2. Begin Phase 1 implementation
-3. Set up local development environment
-4. Create initial project structure
+1. Begin Phase 3: MLflow Integration
+2. Enhance cost tracking for OpenAI usage
+3. Prepare for external tool integration (Firecrawl, E2B)

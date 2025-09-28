@@ -152,6 +152,10 @@ mlflow.db
 mlartifacts/
 mlflow-artifacts/
 *.db-journal
+# MLflow test experiments
+ATLAS_Test/
+ATLAS_Task_*/
+ATLAS_Integration_Test/
 
 # ===========================================
 # DATABASES

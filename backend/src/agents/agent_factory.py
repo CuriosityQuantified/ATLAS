@@ -499,16 +499,23 @@ You create compelling, professional content that effectively communicates comple
 
     def send_message_to_agent(self, agent_id: str, message: str) -> List:
         """Send a message to a specific agent and get the response."""
-        response = self.client.agents.messages.send(
+        from letta_client import MessageCreate
+
+        response = self.client.agents.messages.create(
             agent_id=agent_id,
-            message=message
+            messages=[
+                MessageCreate(
+                    role="user",
+                    content=message
+                )
+            ]
         )
         return response.messages if hasattr(response, 'messages') else [response]
 
     def update_agent_memory(self, agent_id: str, memory_key: str, memory_value: str):
         """Update a specific memory block for an agent."""
         # Get current agent
-        agent = self.client.agents.get(agent_id)
+        agent = self.client.agents.retrieve(agent_id)
 
         # Update memory using the new API
         # Note: This might need adjustment based on actual API
@@ -521,7 +528,7 @@ You create compelling, professional content that effectively communicates comple
 
     def get_agent_state(self, agent_id: str) -> AgentState:
         """Get the current state of an agent."""
-        return self.client.agents.get(agent_id)
+        return self.client.agents.retrieve(agent_id)
 
     def delete_agent(self, agent_id: str):
         """Delete an agent when no longer needed."""
