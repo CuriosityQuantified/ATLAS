@@ -9,10 +9,10 @@ class MockMLflowConfig:
         self.tracking_uri = tracking_uri
 
 # Mock the cost calculator
-from backend.src.utils.cost_calculator import get_cost_and_pricing_details
+from src.utils.cost_calculator import get_cost_and_pricing_details
 
 # Import the class to be tested
-from backend.src.mlflow.tracking import ATLASMLflowTracker
+from src.mlflow.tracking import ATLASMLflowTracker
 
 class TestATLASMLflowTracker(unittest.TestCase):
 

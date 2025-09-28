@@ -1,6 +1,0 @@
-{
-  "task_type": "general_analysis",
-  "description": "Complete test of chat persistence functionality with detailed conversation history",
-  "priority": "high",
-  "context": {}
-}

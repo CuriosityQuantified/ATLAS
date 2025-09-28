@@ -19,9 +19,10 @@ except ImportError:
     mlflow = None
     MlflowClient = None
 
-from ..agents.global_supervisor import GlobalSupervisorAgent
-from ..agents.global_supervisor_v2 import GlobalSupervisorV2
-from ..agents.library import LibraryAgent
+# from ..agents.global_supervisor import GlobalSupervisorAgent
+# from ..agents.global_supervisor_v2 import GlobalSupervisorV2
+# from ..agents.library import LibraryAgent
+from ..agents.supervisor import Supervisor as GlobalSupervisorAgent
 from ..agents.base import Task, TaskResult, AgentStatus
 from ..agui.handlers import AGUIEventBroadcaster
 from ..mlflow.enhanced_tracking import EnhancedATLASTracker
@@ -121,38 +122,26 @@ async def create_agent_task(
             context=request.context or {}
         )
         
-        # Initialize Global Supervisor for this task with MLflow tracker
-        if request.use_v2_supervisor:
-            global_supervisor = GlobalSupervisorV2(
-                task_id=task_id,
-                agui_broadcaster=broadcaster,
-                mlflow_tracker=mlflow_tracker,
-                chat_session_id=chat_session_id
-            )
-            logger.info(f"Using GlobalSupervisorV2 for task {task_id}")
-        else:
-            global_supervisor = GlobalSupervisorAgent(
-                task_id=task_id,
-                agui_broadcaster=broadcaster,
-                mlflow_tracker=mlflow_tracker
-            )
-            logger.info(f"Using GlobalSupervisorAgent (V1) for task {task_id}")
+        # Initialize Global Supervisor for this task
+        # Note: Current Supervisor class only accepts task_id
+        global_supervisor = GlobalSupervisorAgent(task_id=task_id)
+        logger.info(f"Using GlobalSupervisorAgent for task {task_id}")
         
-        # Initialize Library Agent (shared across tasks)
-        library_agent_id = "library_agent_shared"
-        if library_agent_id not in active_agents:
-            library_agent = LibraryAgent(
-                task_id=task_id,
-                agui_broadcaster=broadcaster,
-                mlflow_tracker=mlflow_tracker
-            )
-            active_agents[library_agent_id] = library_agent
-            logger.info(f"Initialized shared Library Agent: {library_agent_id}")
-        
+        # Library Agent initialization commented out for now (not implemented yet)
+        # library_agent_id = "library_agent_shared"
+        # if library_agent_id not in active_agents:
+        #     library_agent = LibraryAgent(
+        #         task_id=task_id,
+        #         agui_broadcaster=broadcaster,
+        #         mlflow_tracker=mlflow_tracker
+        #     )
+        #     active_agents[library_agent_id] = library_agent
+        #     logger.info(f"Initialized shared Library Agent: {library_agent_id}")
+
         # Store active agents for this task
         active_agents[task_id] = {
             "global_supervisor": global_supervisor,
-            "library_agent": active_agents[library_agent_id],
+            "library_agent": None,  # Library agent not implemented yet
             "task": task,
             "created_at": datetime.now(),
             "status": "created",

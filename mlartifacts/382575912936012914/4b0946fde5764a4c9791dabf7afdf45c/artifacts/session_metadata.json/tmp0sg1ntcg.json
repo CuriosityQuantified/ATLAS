@@ -1,6 +1,0 @@
-{
-  "task_type": "general_analysis",
-  "description": "Test chat persistence with a real user message",
-  "priority": "medium",
-  "context": {}
-}

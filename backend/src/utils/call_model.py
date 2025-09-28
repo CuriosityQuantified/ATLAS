@@ -20,6 +20,9 @@ from datetime import datetime
 # Import centralized LLM logging
 from .llm_logging import LLMCallLogger
 
+# Import OpenRouter configuration
+from src.config.openrouter_config import OpenRouterConfig
+
 logger = logging.getLogger(__name__)
 
 # Import model providers
@@ -73,6 +76,51 @@ class InvocationMethod(Enum):
     LANGCHAIN = "langchain"     # LangChain integration
     HTTP = "http"              # Direct HTTP calls
     STREAMING = "streaming"     # Streaming responses
+
+
+# OpenRouter model fallback configuration
+OPENROUTER_MODEL_FALLBACK = [
+    # Primary: Groq (fastest, most cost-effective)
+    {
+        "model": "moonshotai/kimi-k2-0905",
+        "provider": "Groq",
+        "priority": 1
+    },
+
+    # Secondary: Cerebras (powerful Qwen models)
+    {
+        "model": "qwen/qwen3-235b-a22b-thinking-2507",
+        "provider": "Cerebras",
+        "priority": 2
+    },
+    {
+        "model": "qwen/qwen3-235b-a22b-2507",
+        "provider": "Cerebras",
+        "priority": 3
+    },
+    {
+        "model": "qwen/qwen3-coder",
+        "provider": "Cerebras",
+        "priority": 4
+    },
+
+    # Tertiary: Sambanova (DeepSeek models)
+    {
+        "model": "deepseek/deepseek-chat-v3.1",
+        "provider": "Sambanova",
+        "priority": 5
+    },
+    {
+        "model": "deepseek/deepseek-chat-v3-0324",
+        "provider": "Sambanova",
+        "priority": 6
+    },
+    {
+        "model": "moonshotai/kimi-k2-0905",  # Same model, different provider
+        "provider": "Sambanova",
+        "priority": 7
+    }
+]
 
 
 @dataclass
@@ -274,7 +322,7 @@ class CallModel:
     # ANTHROPIC PROVIDER METHODS
     # ===============================
     
-    def _get_anthropic_client(self) -> anthropic.Anthropic:
+    def _get_anthropic_client(self):
         """Get or create Anthropic client (lazy loading)."""
         if self._anthropic_client is None:
             api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -500,7 +548,7 @@ class CallModel:
     # OPENAI PROVIDER METHODS
     # ===============================
     
-    def _get_openai_client(self) -> openai.OpenAI:
+    def _get_openai_client(self):
         """Get or create OpenAI client (lazy loading)."""
         if self._openai_client is None:
             api_key = os.getenv("OPENAI_API_KEY")
@@ -682,7 +730,7 @@ class CallModel:
     # GROQ PROVIDER METHODS
     # ===============================
     
-    def _get_groq_client(self) -> groq.Groq:
+    def _get_groq_client(self):
         """Get or create Groq client (lazy loading)."""
         if self._groq_client is None:
             api_key = os.getenv("GROQ_API_KEY")
@@ -1049,10 +1097,182 @@ class CallModel:
                 error=str(e),
                 error_type=type(e).__name__
             )
-    
+
+    async def call_openrouter_with_fallback(self, request: ModelRequest) -> ModelResponse:
+        """Call OpenRouter with automatic fallback through model hierarchy.
+
+        This method iterates through our configured model list, attempting each
+        model with its specified provider until one succeeds. This ensures high
+        availability and cost optimization by prioritizing faster/cheaper providers.
+        """
+
+        # Use the new OpenRouter configuration
+        config = OpenRouterConfig()
+
+        for i, model_config in enumerate(config.MODELS):
+            # Update request with current model from fallback chain
+            request.model_name = model_config.model
+
+            # Get provider routing using the new configuration
+            extra_body = config.get_extra_body(model_priority=i)
+
+            try:
+                # Attempt to call with this model/provider combination
+                response = await self._call_openrouter_with_provider(
+                    request,
+                    extra_body
+                )
+
+                if response.success:
+                    # Log successful model/provider combo for monitoring
+                    logger.info(f"OpenRouter success with {model_config.model} via {model_config.provider}")
+                    return response
+                else:
+                    # Log failure and continue to next model
+                    logger.warning(f"OpenRouter failed with {model_config.model} via {model_config.provider}: {response.error}")
+                    continue
+
+            except Exception as e:
+                logger.error(f"OpenRouter error with {model_config.model}: {e}")
+                continue
+
+        # All models in the fallback chain failed
+        return ModelResponse(
+            success=False,
+            error="All OpenRouter models in fallback chain failed",
+            error_type="AllModelsFailed",
+            provider="openrouter",
+            model_name="fallback_chain",
+            invocation_method="http"
+        )
+
+    async def _call_openrouter_with_provider(self, request: ModelRequest, extra_body: dict) -> ModelResponse:
+        """Internal method to call OpenRouter with specific provider routing.
+
+        This method handles the actual HTTP request to OpenRouter with provider
+        routing information that ensures the model runs on our preferred providers.
+        Args:
+            request: Model request with message and parameters
+            extra_body: Provider routing configuration for OpenRouter API
+        """
+
+        if not httpx:
+            return ModelResponse(
+                success=False,
+                error="httpx package not installed",
+                error_type="ImportError"
+            )
+
+        try:
+            start_time = time.time()
+
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise ValueError("OPENROUTER_API_KEY not found in environment")
+
+            # Build messages in OpenAI format
+            messages = []
+
+            if request.system_prompt:
+                messages.append({"role": "system", "content": str(request.system_prompt)})
+
+            if request.conversation_history:
+                if isinstance(request.conversation_history, list):
+                    for msg in request.conversation_history:
+                        if isinstance(msg, dict):
+                            messages.append(msg)
+                        else:
+                            messages.append({"role": "user", "content": str(msg)})
+
+            if request.most_recent_message:
+                if isinstance(request.most_recent_message, dict):
+                    messages.append(request.most_recent_message)
+                else:
+                    messages.append({"role": "user", "content": str(request.most_recent_message)})
+
+            if not messages:
+                messages = [{"role": "user", "content": "Hello"}]
+
+            # Create base payload
+            payload = {
+                "model": request.model_name,
+                "messages": messages,
+                "max_tokens": request.max_tokens or 4000,
+                "temperature": request.temperature or 0.7,
+                **extra_body  # Merge provider routing configuration
+            }
+
+            if request.stop_sequences:
+                payload["stop"] = request.stop_sequences
+
+            # Make the HTTP request
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://atlas.local",
+                        "X-Title": "ATLAS Multi-Agent System"
+                    },
+                    json=payload,
+                    timeout=request.timeout or 60.0
+                )
+
+            processing_time = time.time() - start_time
+
+            # Process response
+            if response.status_code == 200:
+                data = response.json()
+                content = data["choices"][0]["message"]["content"] if data.get("choices") else ""
+
+                # Log the successful call
+                # Note: log_call_end method doesn't exist, using log_response instead
+                if content:
+                    LLMCallLogger.log_response(
+                        content=content,
+                        input_tokens=data.get("usage", {}).get("prompt_tokens", 0),
+                        output_tokens=data.get("usage", {}).get("completion_tokens", 0),
+                        total_tokens=data.get("usage", {}).get("total_tokens", 0),
+                        response_time=processing_time
+                    )
+
+                return ModelResponse(
+                    success=True,
+                    content=content,
+                    provider="openrouter",
+                    model_name=request.model_name,
+                    invocation_method="http",
+                    response_time=processing_time,
+                    raw_response=data,
+                    input_tokens=data.get("usage", {}).get("prompt_tokens"),
+                    output_tokens=data.get("usage", {}).get("completion_tokens"),
+                    total_tokens=data.get("usage", {}).get("total_tokens")
+                )
+            else:
+                return ModelResponse(
+                    success=False,
+                    error=f"HTTP {response.status_code}: {response.text}",
+                    error_type="HTTPError",
+                    provider="openrouter",
+                    model_name=request.model_name,
+                    invocation_method="http",
+                    response_time=processing_time
+                )
+
+        except Exception as e:
+            return ModelResponse(
+                success=False,
+                provider="openrouter",
+                model_name=request.model_name,
+                invocation_method="http",
+                error=str(e),
+                error_type=type(e).__name__
+            )
+
     # ===============================
     # UNIFIED INTERFACE METHODS
-    # ===============================
+    # ==============================="
     
     async def call_model(
         self,
@@ -1112,7 +1332,7 @@ class CallModel:
             (ModelProvider.GROQ, InvocationMethod.DIRECT): self.call_groq_direct,
             (ModelProvider.GOOGLE, InvocationMethod.DIRECT): self.call_google_direct,
             (ModelProvider.HUGGINGFACE, InvocationMethod.HTTP): self.call_huggingface_http,
-            (ModelProvider.OPENROUTER, InvocationMethod.HTTP): self.call_openrouter_http,
+            (ModelProvider.OPENROUTER, InvocationMethod.HTTP): self.call_openrouter_with_fallback,  # Use fallback version
         }
         
         method = method_map.get((provider, invocation_method))
@@ -1166,8 +1386,27 @@ class CallModel:
     
     def _detect_provider(self, model_name: str) -> ModelProvider:
         """Auto-detect provider based on model name."""
+
+        # Check for explicit OpenRouter prefix
+        if model_name.startswith("openrouter/"):
+            return ModelProvider.OPENROUTER
+
+        # First check if it's one of our configured OpenRouter models
+        openrouter_models = [
+            "moonshotai/kimi-k2-0905",
+            "qwen/qwen3-235b-a22b-thinking-2507",
+            "qwen/qwen3-235b-a22b-2507",
+            "qwen/qwen3-coder",
+            "deepseek/deepseek-chat-v3.1",
+            "deepseek/deepseek-chat-v3-0324"
+        ]
+
+        if model_name in openrouter_models:
+            return ModelProvider.OPENROUTER
+
+        # Otherwise, use pattern matching
         model_lower = model_name.lower()
-        
+
         if "claude" in model_lower or "anthropic" in model_lower:
             return ModelProvider.ANTHROPIC
         elif "gpt" in model_lower or "o1" in model_lower:

@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 
 # Import AG-UI server components
 from src.agui import create_agui_server, AGUIEventBroadcaster, AGUIEventFactory, AGUIServer
+from src.agui.server import AGUIConnectionManager
+from src.agui.copilot_bridge import setup_copilot_routes
 
 # Import API endpoints
 from src.api.agent_endpoints import router as agent_router
@@ -95,6 +97,11 @@ app.router.lifespan_context = lifespan
 app.include_router(agent_router, prefix="/api")
 app.include_router(chat_router)
 app.include_router(letta_router)
+
+# Set up CopilotKit bridge
+# Create a connection manager instance for CopilotKit
+copilot_agui_manager = AGUIConnectionManager()
+setup_copilot_routes(app, copilot_agui_manager)
 
 @app.get("/")
 async def root():

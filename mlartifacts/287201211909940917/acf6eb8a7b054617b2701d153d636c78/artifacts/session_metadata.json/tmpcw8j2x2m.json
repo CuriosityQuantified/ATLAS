@@ -1,9 +1,0 @@
-{
-  "task_type": "research_and_analysis",
-  "description": "This is a test task to trigger error handling: analyze data from file://nonexistent.csv",
-  "priority": "high",
-  "context": {
-    "test_mode": true,
-    "frontend_test": true
-  }
-}

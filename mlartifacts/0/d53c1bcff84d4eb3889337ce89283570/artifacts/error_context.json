@@ -1,7 +1,0 @@
-{
-  "model_name": "claude-3-5-haiku-20241022",
-  "provider": "anthropic",
-  "invocation_method": "direct",
-  "task_id": "test_consolidation_server",
-  "agent_id": "test_agent_server"
-}

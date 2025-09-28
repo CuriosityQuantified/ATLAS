@@ -23,7 +23,14 @@ anthropic
 openai>=1.0.0
 groq
 google-generativeai  # Google Gemini models
-letta>=0.5.0  # Letta (formerly MemGPT) for persistent agent memory
+letta>=0.11.0        # Letta server and CLI commands
+letta-client>=0.1.0  # Official Letta client SDK for agent framework
+sqlite-vec>=0.1.0    # SQLite vector extension for Letta
+
+# Tool-Based Architecture Dependencies
+# helix-db>=0.1.0       # TODO: Phase 5 - Will implement custom knowledge storage
+e2b-code-interpreter>=0.0.10  # Sandboxed code execution for analysis
+firecrawl-py>=1.0.0     # Advanced web scraping for research
 
 # Utilities
 python-dotenv

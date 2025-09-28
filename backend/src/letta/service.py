@@ -7,7 +7,7 @@ from datetime import datetime
 import asyncio
 from pathlib import Path
 
-from letta import RESTClient
+from letta_client.client import Letta as RESTClient
 from letta import AgentState, Message
 
 from .models import LettaAgent, LettaAgentConfig, LettaMessage, LettaConversation, AgentStatus

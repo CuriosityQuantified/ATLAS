@@ -1,58 +1,392 @@
-# Environment variables
+# ===========================================
+# ATLAS Project .gitignore
+# ===========================================
+# This file ensures only essential files for running ATLAS are tracked
+# while excluding development artifacts, sensitive data, and generated files
+
+# ===========================================
+# ENVIRONMENT & SECRETS
+# ===========================================
+# Never commit sensitive configuration
 .env
+.env.*
+*.env
+!.env.example  # Exception: Keep the example template
 
-# AI Assistant Configuration Files
-CLAUDE.md
-GEMINI.md
+# Local configuration overrides
+*.local.md
+CLAUDE.local.md
+GEMINI.local.md
+*-local.md
 
-# Python
+# API keys and credentials
+*_key.txt
+*_secret.txt
+credentials/
+secrets/
+
+# ===========================================
+# PYTHON
+# ===========================================
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
+
+# Virtual Environments (DO NOT COMMIT)
+.venv/
 venv/
+ENV/
 env/
-*.egg-info/
+.Python
+pyvenv.cfg
+
+# Distribution / packaging
+build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+cover/
+*.cover
+*.py,cover
+.hypothesis/
+nosetests.xml
+coverage.xml
+test-results/
+*.log
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ===========================================
+# NODE.JS / FRONTEND
+# ===========================================
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+
+# Next.js
+.next/
+out/
 build/
 
-# Node.js
-node_modules/
+# Production builds
+dist/
+
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.next/
-out/
+lerna-debug.log*
+.pnpm-debug.log*
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Package manager locks (track these for reproducible builds)
+# Comment out if you want to ignore them
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
-# OS
-.DS_Store
-Thumbs.db
+# ===========================================
+# LETTA / MEMGPT
+# ===========================================
+# Letta agent data (local storage)
+.letta/
+.memgpt/
+letta_agents/
+agent_data/
+agent_memories/
 
-# Logs
-logs/
-*.log
+# Letta server data
+letta.db
+letta_server.log
 
-# Docker
-*.pid
-
-# Testing
-.coverage
-.pytest_cache/
-coverage/
-
-# MLflow
+# ===========================================
+# MLFLOW
+# ===========================================
 mlruns/
 mlflow.db
+mlartifacts/
+mlflow-artifacts/
+*.db-journal
 
-# Databases
+# ===========================================
+# DATABASES
+# ===========================================
+# SQLite
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
+
+# PostgreSQL
+*.sql.gz
+*.dump
+postgres-data/
+
+# Redis
+dump.rdb
+appendonly.aof
+
+# ChromaDB
+.chroma/
+chroma_db/
+chroma_collections/
+
+# Neo4j
+neo4j-data/
+
+# ===========================================
+# DOCKER
+# ===========================================
+# Override files
+docker-compose.override.yml
+docker-compose.*.yml
+!docker-compose.dev.yml
+!docker-compose.prod.yml
+
+# Container data volumes
+docker-volumes/
+.docker/
+
+# ===========================================
+# IDE & EDITORS
+# ===========================================
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# ===========================================
+# OS FILES
+# ===========================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+
+# ===========================================
+# LOGS & TEMPORARY FILES
+# ===========================================
+# Log files
+logs/
+*.log
+*.log.*
+*.log-*
+error.log
+access.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.rej
+*.swp
+.~*
+
+# Cache directories
+cache/
+.cache/
+*.cache
+
+# ===========================================
+# TEST ARTIFACTS
+# ===========================================
+# Playwright
+playwright-report/
+playwright/.cache/
+test-results/
+.last-run.json
+
+# Screenshots and media
+screenshots/
+test-screenshots/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webm
+*.mp4
+*.avi
+!frontend/public/*.png  # Keep frontend assets
+!frontend/public/*.svg
+!docs/**/*.png  # Keep documentation images
+
+# Test outputs
+test-output/
+test-results.json
+test-report.html
+
+# ===========================================
+# PROJECT-SPECIFIC
+# ===========================================
+# Archive directory (old code moved here)
+archive/
+
+# Output directories for generated content
+outputs/
+generated/
+results/
+
+# Session data
+sessions/
+session_*/
+
+# Local development files
+local/
+scratch/
+sandbox/
+
+# Backup files
+backups/
+*.old
+*.orig
+
+# API test results
+*_test_results_*.json
+api_test_*.json
+
+# Revert and migration scripts (if temporary)
+revert_*.py
+revert_*.sh
+execute_*.sh
+
+# Code snapshots (development artifacts)
+code_snapshots/
+
+# Old or deprecated directories
+old/
+deprecated/
+legacy/
+
+# ===========================================
+# FILES TO KEEP (EXCEPTIONS)
+# ===========================================
+# Important configuration templates
+!.env.example
+!docker-compose.yml
+!docker-compose.dev.yml
+!docker-compose.prod.yml
+
+# Documentation
+!README.md
+!CLAUDE.md
+!POC_README.md
+!plan.md
+!docs/
+
+# Essential scripts
+!scripts/
+!scripts/**/*.sh
+!scripts/**/*.py
+
+# Source code (always track)
+!backend/src/
+!frontend/src/
+!frontend/public/
+!shared/
+
+# Configuration files
+!backend/requirements.txt
+!frontend/package.json
+!frontend/next.config.ts
+!backend/pyproject.toml
+!tsconfig.json
+!.eslintrc.json
+
+# GitHub workflows
+!.github/
+
+# Test files (but not outputs)
+!backend/tests/*.py
+!frontend/tests/*.ts
+!frontend/tests/*.tsx
+
+# Essential project files
+!LICENSE
+!CONTRIBUTING.md
+!CHANGELOG.md
